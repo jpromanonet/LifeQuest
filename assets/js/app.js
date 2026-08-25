@@ -1120,7 +1120,7 @@
       if (!row) {
         return;
       }
-      if (event.target.closest('form, a, button, label, input')) {
+      if (event.target.closest('form, a, button, label, input, [data-drag-handle]')) {
         return;
       }
       var dialog = fillHabitEditModal(row);
@@ -1274,6 +1274,170 @@
           });
       });
     }
+  }
+
+  function initHabitDragReorder() {
+    var list = document.querySelector('.habit-list-full');
+    if (!list) {
+      return;
+    }
+    var dragging = null;
+    var orderBefore = '';
+
+    function currentOrder() {
+      var ids = [];
+      list.querySelectorAll('.habit-row[data-habit-id]').forEach(function (row) {
+        ids.push(row.getAttribute('data-habit-id'));
+      });
+      return ids;
+    }
+
+    function renumberRows() {
+      list.querySelectorAll('.habit-row[data-habit-id]').forEach(function (row, index) {
+        var n = index + 1;
+        var numEl = row.querySelector('.habit-num');
+        if (numEl) {
+          numEl.textContent = String(n);
+        }
+        row.setAttribute('data-color-group', String(Math.floor((n - 1) / 3) % 5));
+      });
+    }
+
+    function saveOrder() {
+      var ids = currentOrder();
+      if (ids.join(',') === orderBefore) {
+        return;
+      }
+      renumberRows();
+      var csrfInput = document.querySelector('input[name="_csrf"]');
+      var body = new FormData();
+      body.append('_csrf', csrfInput ? csrfInput.value : '');
+      body.append('r', '/habits/reorder');
+      body.append('order', ids.join(','));
+      fetch(appIndex(), {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data || !data.ok) {
+            showToast('No se pudo guardar el orden.', true);
+            return;
+          }
+          showToast('Orden actualizado.', false);
+        })
+        .catch(function () {
+          showToast('Error de red al reordenar.', true);
+        });
+    }
+
+    function rowAfterY(y) {
+      var rows = Array.prototype.slice.call(
+        list.querySelectorAll('.habit-row[data-habit-id]:not(.is-dragging)')
+      );
+      var closest = null;
+      var closestOffset = -Infinity;
+      rows.forEach(function (row) {
+        var box = row.getBoundingClientRect();
+        var offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closestOffset) {
+          closestOffset = offset;
+          closest = row;
+        }
+      });
+      return closest;
+    }
+
+    list.querySelectorAll('.habit-row[data-habit-id]').forEach(function (row) {
+      var handle = row.querySelector('[data-drag-handle]');
+      if (!handle) {
+        return;
+      }
+      handle.addEventListener('mousedown', function () {
+        row.draggable = true;
+      });
+      row.addEventListener('dragstart', function (event) {
+        dragging = row;
+        orderBefore = currentOrder().join(',');
+        row.classList.add('is-dragging');
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', row.getAttribute('data-habit-id') || '');
+        }
+      });
+      row.addEventListener('dragend', function () {
+        row.draggable = false;
+        row.classList.remove('is-dragging');
+        if (dragging === row) {
+          dragging = null;
+          saveOrder();
+        }
+      });
+    });
+
+    list.addEventListener('dragover', function (event) {
+      if (!dragging) {
+        return;
+      }
+      event.preventDefault();
+      var after = rowAfterY(event.clientY);
+      if (after === null) {
+        list.appendChild(dragging);
+      } else if (after !== dragging) {
+        list.insertBefore(dragging, after);
+      }
+    });
+    list.addEventListener('drop', function (event) {
+      if (dragging) {
+        event.preventDefault();
+      }
+    });
+  }
+
+  function initRuleModals() {
+    document.querySelectorAll('[data-edit-rule-category]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var dialog = document.getElementById('ruleCategoryEditModal');
+        var form = document.getElementById('ruleCategoryEditForm');
+        var nameInput = document.getElementById('ruleCategoryEditName');
+        if (!dialog || !form) {
+          return;
+        }
+        setFormRoute(form, '/rules/categories/' + (btn.getAttribute('data-id') || '0'));
+        if (nameInput) {
+          nameInput.value = btn.getAttribute('data-name') || '';
+        }
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-edit-rule]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var dialog = document.getElementById('ruleEditModal');
+        var form = document.getElementById('ruleEditForm');
+        var titleInput = document.getElementById('ruleEditTitle');
+        var bodyInput = document.getElementById('ruleEditBody');
+        if (!dialog || !form) {
+          return;
+        }
+        setFormRoute(form, '/rules/' + (btn.getAttribute('data-id') || '0'));
+        if (titleInput) {
+          titleInput.value = btn.getAttribute('data-title') || '';
+        }
+        if (bodyInput) {
+          bodyInput.value = btn.getAttribute('data-body') || '';
+        }
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        }
+      });
+    });
   }
 
   function initHabitTrackingFields() {
@@ -1747,6 +1911,8 @@
     initGoalEditModal();
     initHorizonEditModal();
     initHabitEditModal();
+    initHabitDragReorder();
+    initRuleModals();
     initHabitTrackingFields();
     initScrollTop();
     void csrfToken;

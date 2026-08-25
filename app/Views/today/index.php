@@ -120,10 +120,11 @@ $taskComplete = !empty($todayTaskStats['complete']);
                 <?php if ($todayTasks === []): ?>
                     <li class="empty-state">No hay tareas para hoy. <a href="<?= e(url('/weekly')) ?>">Agregar en el plan semanal</a></li>
                 <?php endif; ?>
-                <?php foreach ($todayTasks as $task):
+                <?php foreach ($todayTasks as $taskIndex => $task):
                     $done = (int) ($task['is_done'] ?? 0) === 1;
                     ?>
                     <li class="habit-row weekly-task-row<?= $done ? ' is-done' : '' ?>" data-task-id="<?= (int) $task['id'] ?>">
+                        <span class="habit-num task-num"><?= (int) $taskIndex + 1 ?></span>
                         <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-task-toggle>
                             <?= csrf_field() ?>
                             <?= route_field('/weekly/' . (int) $task['id'] . '/toggle') ?>

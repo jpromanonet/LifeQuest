@@ -126,10 +126,11 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                 <?php if ($day['tasks'] === []): ?>
                     <li class="empty-state muted small">Sin tareas</li>
                 <?php endif; ?>
-                <?php foreach ($day['tasks'] as $task):
+                <?php foreach ($day['tasks'] as $taskIndex => $task):
                     $done = (int) ($task['is_done'] ?? 0) === 1;
                     ?>
                     <li class="habit-row weekly-task-row<?= $done ? ' is-done' : '' ?>" data-task-id="<?= (int) $task['id'] ?>">
+                        <span class="habit-num task-num"><?= (int) $taskIndex + 1 ?></span>
                         <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-task-toggle>
                             <?= csrf_field() ?>
                             <?= route_field('/weekly/' . (int) $task['id'] . '/toggle') ?>

@@ -72,6 +72,15 @@ $router->post('/weekly/{id}', [$weekly, 'update']);
 $router->post('/weekly/{id}/delete', [$weekly, 'destroy']);
 $router->post('/weekly/{id}/toggle', [$weekly, 'toggle']);
 
+$rules = new RulesController();
+$router->get('/rules', [$rules, 'index']);
+$router->post('/rules', [$rules, 'storeRule']);
+$router->post('/rules/categories', [$rules, 'storeCategory']);
+$router->post('/rules/categories/{id}', [$rules, 'updateCategory']);
+$router->post('/rules/categories/{id}/delete', [$rules, 'destroyCategory']);
+$router->post('/rules/{id}', [$rules, 'updateRule']);
+$router->post('/rules/{id}/delete', [$rules, 'destroyRule']);
+
 $router->get('/archive', [new ArchiveController(), 'index']);
 
 $settings = new SettingsController();

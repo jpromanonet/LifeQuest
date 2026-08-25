@@ -54,6 +54,9 @@ $habitYear = $habitYear ?? (int) date('Y');
                 role="button"
                 tabindex="0"
             >
+                <span class="habit-drag" data-drag-handle title="Arrastrar para reordenar" aria-label="Arrastrar para reordenar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+                </span>
                 <span class="habit-num"><?= $num ?></span>
                 <span class="habit-meta">
                     <span class="habit-name"><?= e((string) $habit['name']) ?></span>
@@ -70,29 +73,28 @@ $habitYear = $habitYear ?? (int) date('Y');
                         <?php endif; ?>
                     </span>
                 </span>
-                <?php if ($mode === 'daily'): ?>
-                    <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-habit-toggle onclick="event.stopPropagation()">
-                        <?= csrf_field() ?>
-                        <?= route_field('/habits/log') ?>
-                        <input type="hidden" name="habit_id" value="<?= (int) $habit['id'] ?>">
-                        <input type="hidden" name="date" value="<?= e($todayDate) ?>">
-                        <input type="hidden" name="status" value="<?= $done ? 'missed' : 'completed' ?>">
-                        <input type="hidden" name="redirect" value="/habits">
-                        <label class="check-toggle">
-                            <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $habit['name']) ?>">
-                            <span></span>
-                        </label>
-                    </form>
-                <?php elseif ($mode === 'units'): ?>
+                <?php if ($mode === 'units'): ?>
                     <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-lq-save onclick="event.stopPropagation()">
                         <?= csrf_field() ?>
                         <?= route_field('/habits/' . (int) $habit['id'] . '/units') ?>
                         <input type="hidden" name="delta" value="1">
                         <button type="submit" class="btn btn-ghost btn-sm" title="Sumar 1">+1</button>
                     </form>
-                <?php else: ?>
+                <?php elseif ($mode === 'months'): ?>
                     <span class="muted small"><?= e(number_format((float) ($habit['progress_percent'] ?? 0), 0)) ?>%</span>
                 <?php endif; ?>
+                <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-habit-toggle onclick="event.stopPropagation()">
+                    <?= csrf_field() ?>
+                    <?= route_field('/habits/log') ?>
+                    <input type="hidden" name="habit_id" value="<?= (int) $habit['id'] ?>">
+                    <input type="hidden" name="date" value="<?= e($todayDate) ?>">
+                    <input type="hidden" name="status" value="<?= $done ? 'missed' : 'completed' ?>">
+                    <input type="hidden" name="redirect" value="/habits">
+                    <label class="check-toggle" title="Marcar hecho hoy">
+                        <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $habit['name']) ?> hoy">
+                        <span></span>
+                    </label>
+                </form>
             </li>
         <?php endforeach; ?>
     </ul>

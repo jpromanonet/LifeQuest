@@ -167,6 +167,14 @@ try {
     } else {
         $messages[] = 'Tabla weekly_tasks ya existe.';
     }
+
+    $rulesExists = $pdo->query("SHOW TABLES LIKE 'own_rules'")->fetch();
+    if (!$rulesExists) {
+        (new RuleService())->ensureTables();
+        $messages[] = 'Tablas rule_categories y own_rules creadas (Reglas propias).';
+    } else {
+        $messages[] = 'Tablas de Reglas propias ya existen.';
+    }
 } catch (Throwable $e) {
     $error = $e->getMessage();
 }
