@@ -16,7 +16,7 @@ Versión 1: PHP + MySQL, sin framework de frontend. Pensada para desplegarse en 
 | **Hábitos** | Alta, edición y seguimiento (meses, unidades o diario) |
 | **Plan semanal** | Tareas por día, filtro por día, carga diaria |
 | **Métricas** | Completitud, gráficos y distribución |
-| **Horizonte** | Objetivos mayores de largo plazo (binarios) |
+| **Horizontes** | Objetivos mayores de largo plazo (binarios) |
 | **Archivo** | Solo objetivos históricos (sin horizontes) |
 | **Configuración** | Tema, contraseña, áreas anuales y de horizonte |
 
@@ -140,7 +140,7 @@ Atajos útiles: `?r=/goals`, `?r=/habits`, `?r=/weekly`, `?r=/horizon`, `?r=/arc
 4. Edición siempre en modal (sin panel lateral).  
 5. Eliminar un objetivo te deja en el **mismo año** que estabas viendo.
 
-### Horizonte
+### Horizontes
 
 Objetivos de largo plazo, separados de los anuales, con áreas propias (Laborales, Salud, Financieros, etc.). Solo sí/no (logrado / en camino).
 

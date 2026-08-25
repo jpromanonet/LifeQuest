@@ -58,7 +58,7 @@ final class HorizonController
         $filtered = $this->applyFilters($grouped, $filters);
 
         view('horizon/index', [
-            'title' => 'Horizonte',
+            'title' => 'Horizontes',
             'currentNav' => 'horizon',
             'grouped' => $filtered,
             'areas' => $areas,

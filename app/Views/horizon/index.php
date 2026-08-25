@@ -14,10 +14,26 @@ $horizonDone = static function (array $goal): bool {
 ?>
 <section class="page-header with-actions">
     <div>
-        <h1>Horizonte</h1>
+        <h1>Horizontes</h1>
         <p class="muted">Objetivos mayores de vida · se marcan como logrados, sin meses ni porcentajes</p>
     </div>
     <button type="button" class="btn btn-primary" data-open-modal="horizonModal">+ Nuevo horizonte</button>
+</section>
+
+<?php
+$horizonTotal = (int) ($totals['all'] ?? 0);
+$horizonAchieved = (int) ($totals['achieved'] ?? 0);
+$horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100) : 0;
+?>
+<section class="goals-completion-bar card">
+    <div class="goals-completion-head">
+        <span class="kpi-label">Completitud de horizontes</span>
+        <strong><?= (int) $horizonPct ?>%</strong>
+    </div>
+    <div class="progress goals-completion-track">
+        <span style="width:<?= (int) min(100, $horizonPct) ?>%"></span>
+    </div>
+    <div class="muted small"><?= $horizonAchieved ?> / <?= $horizonTotal ?> horizontes logrados</div>
 </section>
 
 <section class="kpi-grid kpi-grid-3">

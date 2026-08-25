@@ -67,7 +67,7 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
                 'goals' => ['Objetivos', '/goals', 'target'],
                 'weekly' => ['Plan semanal', '/weekly', 'week'],
                 'habits' => ['Hábitos', '/habits', 'check'],
-                'horizon' => ['Horizonte', '/horizon', 'horizon'],
+                'horizon' => ['Horizontes', '/horizon', 'horizon'],
                 'metrics' => ['Métricas', '/metrics', 'chart'],
                 'reviews' => ['Revisiones', '/reviews', 'review'],
                 'archive' => ['Archivo', '/archive', 'archive'],
