@@ -1,6 +1,30 @@
 (function () {
   'use strict';
 
+  /** Normaliza path+r (+ filtros estables) para comparar scroll memory entre redirects. */
+  function pageKeyFromUrl(href) {
+    try {
+      var u = href ? new URL(href, location.origin) : new URL(location.href);
+      var r = u.searchParams.get('r') || '';
+      if (r.charAt(0) !== '/' && r !== '') {
+        r = '/' + r;
+      }
+      var parts = [];
+      if (r) {
+        parts.push('r=' + r);
+      }
+      ['year', 'area', 'done', 'status', 'priority', 'q'].forEach(function (key) {
+        var val = u.searchParams.get(key);
+        if (val !== null && val !== '') {
+          parts.push(key + '=' + val);
+        }
+      });
+      return u.pathname + (parts.length ? '?' + parts.join('&') : '');
+    } catch (e) {
+      return location.pathname + location.search;
+    }
+  }
+
   function applySystemTheme() {
     var root = document.documentElement;
     var pref = root.getAttribute('data-theme-pref') || root.getAttribute('data-theme') || 'light';
@@ -603,13 +627,32 @@
   }
 
   function initGoalEditModal() {
-    document.querySelectorAll('[data-edit-goal]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var dialog = fillGoalEditModal(btn);
-        if (dialog && typeof dialog.showModal === 'function') {
-          dialog.showModal();
-        }
-      });
+    document.addEventListener('click', function (event) {
+      var row = event.target.closest('[data-edit-goal]');
+      if (!row) {
+        return;
+      }
+      if (event.target.closest('a, button, label, input, select, textarea, form')) {
+        return;
+      }
+      var dialog = fillGoalEditModal(row);
+      if (dialog && typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+      var row = event.target.closest('[data-edit-goal]');
+      if (!row || event.target !== row) {
+        return;
+      }
+      event.preventDefault();
+      var dialog = fillGoalEditModal(row);
+      if (dialog && typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
     });
 
     var auto = document.getElementById('goalEditModal');
@@ -884,13 +927,32 @@
       return dialog;
     }
 
-    document.querySelectorAll('[data-edit-horizon]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var dialog = fillHorizonEditModal(btn);
-        if (dialog && typeof dialog.showModal === 'function') {
-          dialog.showModal();
-        }
-      });
+    document.addEventListener('click', function (event) {
+      var row = event.target.closest('[data-edit-horizon]');
+      if (!row) {
+        return;
+      }
+      if (event.target.closest('a, button, label, input, select, textarea, form')) {
+        return;
+      }
+      var dialog = fillHorizonEditModal(row);
+      if (dialog && typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+      var row = event.target.closest('[data-edit-horizon]');
+      if (!row || event.target !== row) {
+        return;
+      }
+      event.preventDefault();
+      var dialog = fillHorizonEditModal(row);
+      if (dialog && typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
     });
 
     var auto = document.getElementById('horizonEditModal');
@@ -951,6 +1013,265 @@
             }
           })
           .catch(function () {});
+      });
+    }
+  }
+
+  function initHabitEditModal() {
+    function fillHabitEditModal(source) {
+      var dialog = document.getElementById('habitEditModal');
+      var form = document.getElementById('habitEditForm');
+      if (!dialog || !form || !source) {
+        return null;
+      }
+      var id = source.getAttribute('data-id') || '';
+      setFormRoute(form, '/habits/' + id);
+      var archiveForm = document.getElementById('habitArchiveForm');
+      var deleteForm = document.getElementById('habitDeleteForm');
+      var monthForm = document.getElementById('habitMonthToggleForm');
+      var unitsForm = document.getElementById('habitUnitsForm');
+      if (archiveForm) {
+        setFormRoute(archiveForm, '/habits/' + id + '/archive');
+      }
+      if (deleteForm) {
+        setFormRoute(deleteForm, '/habits/' + id + '/delete');
+      }
+      if (monthForm) {
+        setFormRoute(monthForm, '/habits/' + id + '/months');
+      }
+      if (unitsForm) {
+        setFormRoute(unitsForm, '/habits/' + id + '/units');
+      }
+
+      var map = {
+        habitEditName: 'data-name',
+        habitEditDescription: 'data-description',
+        habitEditAreaId: 'data-area-id',
+        habitEditTrackingMode: 'data-tracking-mode',
+        habitEditTarget: 'data-target',
+        habitEditUnit: 'data-unit',
+        habitEditFrequency: 'data-frequency',
+        habitEditCurrent: 'data-current',
+        habitEditTargetLive: 'data-target',
+      };
+      Object.keys(map).forEach(function (fieldId) {
+        var el = document.getElementById(fieldId);
+        if (!el) {
+          return;
+        }
+        var value = source.getAttribute(map[fieldId]);
+        el.value = value == null ? '' : value;
+      });
+
+      var grid = document.getElementById('habitEditMonthGrid');
+      if (grid) {
+        grid.setAttribute('data-habit-id', id);
+      }
+      var checked = {};
+      (source.getAttribute('data-months') || '').split(',').forEach(function (part) {
+        var n = parseInt(part, 10);
+        if (n >= 1 && n <= 12) {
+          checked[n] = true;
+        }
+      });
+      applyMonthChecks(checked, grid, document.getElementById('habitEditProgressLabel'));
+      syncHabitEditMode(source.getAttribute('data-tracking-mode') || 'months');
+      updateHabitUnitsLabel();
+      return dialog;
+    }
+
+    function syncHabitEditMode(mode) {
+      mode = mode === 'units' || mode === 'daily' ? mode : 'months';
+      var unitsFields = document.getElementById('habitEditUnitsFields');
+      var freqField = document.getElementById('habitEditFrequencyField');
+      var monthsBlock = document.getElementById('habitEditMonthsBlock');
+      var unitsBlock = document.getElementById('habitEditUnitsBlock');
+      if (unitsFields) {
+        unitsFields.hidden = mode !== 'units';
+        setBlockFieldsEnabled(unitsFields, mode === 'units');
+      }
+      if (freqField) {
+        freqField.hidden = mode !== 'daily';
+        setBlockFieldsEnabled(freqField, mode === 'daily');
+      }
+      if (monthsBlock) {
+        monthsBlock.hidden = mode !== 'months';
+      }
+      if (unitsBlock) {
+        unitsBlock.hidden = mode !== 'units';
+      }
+    }
+
+    function updateHabitUnitsLabel() {
+      var label = document.getElementById('habitEditUnitsLabel');
+      var current = document.getElementById('habitEditCurrent');
+      var target = document.getElementById('habitEditTargetLive');
+      if (!label || !current || !target) {
+        return;
+      }
+      var c = parseFloat(current.value) || 0;
+      var t = parseFloat(target.value) || 0;
+      var pct = t > 0 ? Math.min(100, Math.round((c / t) * 100)) : 0;
+      label.textContent = pct + '% · ' + c + '/' + t;
+    }
+
+    document.addEventListener('click', function (event) {
+      var row = event.target.closest('[data-edit-habit]');
+      if (!row) {
+        return;
+      }
+      if (event.target.closest('form, a, button, label, input')) {
+        return;
+      }
+      var dialog = fillHabitEditModal(row);
+      if (dialog && typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+      var row = event.target.closest('[data-edit-habit]');
+      if (!row || event.target !== row) {
+        return;
+      }
+      event.preventDefault();
+      var dialog = fillHabitEditModal(row);
+      if (dialog && typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
+    });
+
+    var auto = document.getElementById('habitEditModal');
+    if (auto && auto.getAttribute('data-auto-open') === '1') {
+      fillHabitEditModal(auto);
+      if (typeof auto.showModal === 'function') {
+        auto.showModal();
+      }
+    }
+
+    var modeSelect = document.getElementById('habitEditTrackingMode');
+    if (modeSelect) {
+      modeSelect.addEventListener('change', function () {
+        syncHabitEditMode(modeSelect.value);
+      });
+    }
+
+    var grid = document.getElementById('habitEditMonthGrid');
+    var monthForm = document.getElementById('habitMonthToggleForm');
+    if (grid && monthForm) {
+      grid.querySelectorAll('input[data-month]').forEach(function (input) {
+        input.addEventListener('change', function () {
+          var habitId = grid.getAttribute('data-habit-id') || '';
+          var month = input.getAttribute('data-month') || '';
+          if (!habitId || !month) {
+            return;
+          }
+          setFormRoute(monthForm, '/habits/' + habitId + '/months');
+          var body = new FormData(monthForm);
+          body.set('month', month);
+          fetch(appIndex(), {
+            method: 'POST',
+            body: body,
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          })
+            .then(function (res) {
+              return res.json();
+            })
+            .then(function (data) {
+              if (!data || !data.ok || !data.progress) {
+                input.checked = !input.checked;
+                return;
+              }
+              applyMonthChecks(data.progress.months || {}, grid, document.getElementById('habitEditProgressLabel'));
+              var row = document.querySelector('[data-edit-habit][data-id="' + habitId + '"]');
+              if (row) {
+                var months = data.progress.months || {};
+                var csv = [];
+                Object.keys(months).forEach(function (k) {
+                  if (months[k]) {
+                    csv.push(k);
+                  }
+                });
+                row.setAttribute('data-months', csv.join(','));
+                row.setAttribute('data-progress', String(Math.round(data.progress.percent || 0)));
+              }
+            })
+            .catch(function () {
+              input.checked = !input.checked;
+            });
+        });
+      });
+    }
+
+    var plusBtn = document.getElementById('habitEditUnitsPlus');
+    var saveBtn = document.getElementById('habitEditUnitsSave');
+    var currentInput = document.getElementById('habitEditCurrent');
+    var targetLive = document.getElementById('habitEditTargetLive');
+    if (currentInput) {
+      currentInput.addEventListener('input', updateHabitUnitsLabel);
+    }
+    if (targetLive) {
+      targetLive.addEventListener('input', updateHabitUnitsLabel);
+    }
+    if (plusBtn && currentInput) {
+      plusBtn.addEventListener('click', function () {
+        currentInput.value = String((parseFloat(currentInput.value) || 0) + 1);
+        updateHabitUnitsLabel();
+      });
+    }
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function () {
+        var gridEl = document.getElementById('habitEditMonthGrid');
+        var habitId = gridEl ? gridEl.getAttribute('data-habit-id') : '';
+        var unitsForm = document.getElementById('habitUnitsForm');
+        if (!habitId || !unitsForm || !currentInput) {
+          return;
+        }
+        setFormRoute(unitsForm, '/habits/' + habitId + '/units');
+        var body = new FormData(unitsForm);
+        body.set('current_value', currentInput.value || '0');
+        if (targetLive) {
+          body.set('target_per_period', targetLive.value || '12');
+        }
+        fetch(appIndex(), {
+          method: 'POST',
+          body: body,
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+          .then(function (res) {
+            return res.json();
+          })
+            .then(function (data) {
+            if (!data || !data.ok) {
+              showToast((data && data.error) || 'No se pudo guardar.', true);
+              return;
+            }
+            if (data.progress) {
+              var cur = data.progress.current_value != null ? data.progress.current_value : data.progress.current;
+              var tgt = data.progress.target != null ? data.progress.target : data.progress.target_per_period;
+              currentInput.value = cur;
+              if (targetLive && tgt != null) {
+                targetLive.value = tgt;
+              }
+              updateHabitUnitsLabel();
+              var row = document.querySelector('[data-edit-habit][data-id="' + habitId + '"]');
+              if (row) {
+                row.setAttribute('data-current', String(cur));
+                if (tgt != null) {
+                  row.setAttribute('data-target', String(tgt));
+                }
+                row.setAttribute('data-progress', String(Math.round(data.progress.percent || 0)));
+              }
+            }
+            showToast('Unidades actualizadas.', false);
+          })
+          .catch(function () {
+            showToast('Error de red al guardar.', true);
+          });
       });
     }
   }
@@ -1176,7 +1497,20 @@
                   focusId = hm[1];
                   focusKind = rv.indexOf('/horizon/') === 0 ? 'horizon' : (rv.indexOf('/habits/') === 0 ? 'habit' : 'goal');
                 }
-                window.__lqSaveScroll(focusId ? { focusId: focusId, focusKind: focusKind } : {});
+                // Guardar path del destino del redirect para que coincida al recargar.
+                var y = window.scrollY || document.documentElement.scrollTop || 0;
+                var destPath = pageKeyFromUrl(result.data.redirect);
+                try {
+                  sessionStorage.setItem('lq:scroll', JSON.stringify({
+                    path: destPath || (location.pathname + location.search),
+                    y: y,
+                    t: Date.now(),
+                    focusId: focusId,
+                    focusKind: focusKind,
+                  }));
+                } catch (e) {
+                  window.__lqSaveScroll(focusId ? { focusId: focusId, focusKind: focusKind } : {});
+                }
               }
               window.location.replace(result.data.redirect);
               return;
@@ -1205,6 +1539,70 @@
           }
           showToast('Error de red al guardar. Probá de nuevo.', true);
         });
+    });
+  }
+
+  function initSortableTables() {
+    document.querySelectorAll('[data-sortable]').forEach(function (table) {
+      var head = table.querySelector('.goal-table-head, .archive-table-head');
+      if (!head) {
+        return;
+      }
+      head.querySelectorAll('.sort-btn[data-sort]').forEach(function (btn) {
+        btn.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          var key = btn.getAttribute('data-sort') || '';
+          if (!key) {
+            return;
+          }
+          var type = btn.getAttribute('data-sort-type') || 'text';
+          var prev = table.getAttribute('data-sort-key');
+          var dir = table.getAttribute('data-sort-dir') === 'asc' ? 'desc' : 'asc';
+          if (prev !== key) {
+            dir = type === 'number' || type === 'date' ? 'desc' : 'asc';
+          }
+          table.setAttribute('data-sort-key', key);
+          table.setAttribute('data-sort-dir', dir);
+
+          head.querySelectorAll('.sort-btn').forEach(function (other) {
+            other.removeAttribute('aria-sort');
+            other.classList.remove('is-asc', 'is-desc');
+          });
+          btn.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending');
+          btn.classList.add(dir === 'asc' ? 'is-asc' : 'is-desc');
+
+          var rows = Array.prototype.slice.call(table.children).filter(function (el) {
+            return el !== head && (el.classList.contains('goal-row') || el.classList.contains('archive-row'));
+          });
+
+          rows.sort(function (a, b) {
+            var av = a.getAttribute('data-sort-' + key);
+            var bv = b.getAttribute('data-sort-' + key);
+            if (av == null) {
+              av = '';
+            }
+            if (bv == null) {
+              bv = '';
+            }
+            var cmp = 0;
+            if (type === 'number') {
+              cmp = (parseFloat(av) || 0) - (parseFloat(bv) || 0);
+            } else if (type === 'date') {
+              var ad = av || '9999-99-99';
+              var bd = bv || '9999-99-99';
+              cmp = ad < bd ? -1 : ad > bd ? 1 : 0;
+            } else {
+              cmp = String(av).localeCompare(String(bv), 'es', { sensitivity: 'base', numeric: true });
+            }
+            return dir === 'asc' ? cmp : -cmp;
+          });
+
+          rows.forEach(function (row) {
+            table.appendChild(row);
+          });
+        });
+      });
     });
   }
 
@@ -1254,8 +1652,8 @@
     const KEY = 'lq:scroll';
     const MAX_AGE = 30000;
 
-    const pageKey = function () {
-      return location.pathname + location.search;
+    const pageKey = function (href) {
+      return pageKeyFromUrl(href);
     };
 
     const read = function () {
@@ -1342,11 +1740,13 @@
     initWeeklyTaskModal();
     initCharts();
     initSidebar();
+    initSortableTables();
     initModals();
     initLqSaveForms();
     initBookModal();
     initGoalEditModal();
     initHorizonEditModal();
+    initHabitEditModal();
     initHabitTrackingFields();
     initScrollTop();
     void csrfToken;

@@ -50,9 +50,18 @@ $archiveIndex = 0;
             </h2>
             <span class="muted small"><?= count($goals) ?> objetivos</span>
         </div>
-        <div class="archive-table">
+        <div class="archive-table" data-sortable>
+            <div class="archive-table-head" role="row">
+                <button type="button" class="sort-btn" data-sort="title" aria-label="Ordenar por objetivo">Objetivo</button>
+                <button type="button" class="sort-btn" data-sort="status" aria-label="Ordenar por estado">Estado</button>
+            </div>
             <?php foreach ($goals as $goal): ?>
-                <div class="archive-row">
+                <div
+                    class="archive-row"
+                    data-sort-title="<?= e(mb_strtolower((string) $goal['title'])) ?>"
+                    data-sort-status="<?= e((string) $goal['status']) ?>"
+                    data-sort-progress="<?= e((string) (float) $goal['progress_percent']) ?>"
+                >
                     <div>
                         <strong><?= e((string) $goal['title']) ?></strong>
                         <div class="muted small"><?= e((string) ($goal['area_name'] ?? 'Sin área')) ?></div>

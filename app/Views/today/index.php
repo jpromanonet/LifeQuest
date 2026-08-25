@@ -61,12 +61,12 @@ $taskComplete = !empty($todayTaskStats['complete']);
 </section>
 
 <section class="today-layout">
-    <div class="today-col">
-        <article class="card">
-            <div class="card-header">
-                <h2>Hábitos de hoy</h2>
-                <a class="text-link" href="<?= e(url('/habits')) ?>">Ver todos →</a>
-            </div>
+    <article class="card today-panel today-panel--scroll">
+        <div class="card-header">
+            <h2>Hábitos de hoy</h2>
+            <a class="text-link" href="<?= e(url('/habits')) ?>">Ver todos →</a>
+        </div>
+        <div class="today-panel-scroll">
             <ul class="habit-list">
                 <?php if ($todayHabits === []): ?>
                     <li class="empty-state">No hay hábitos programados para hoy.</li>
@@ -93,75 +93,29 @@ $taskComplete = !empty($todayTaskStats['complete']);
                     </li>
                 <?php endforeach; ?>
             </ul>
-        </article>
+        </div>
+    </article>
 
-        <article class="card year-progress-card">
-            <div class="card-header">
-                <h2>Progreso del año</h2>
-                <span class="muted small"><?= (int) $yp['year'] ?></span>
-            </div>
-            <div class="year-progress">
-                <div class="year-ring-wrap">
-                    <div class="chart-box chart-box--ring">
-                        <canvas id="yearRing" aria-label="Porcentaje del año transcurrido"></canvas>
-                    </div>
-                    <div class="year-ring-center">
-                        <strong><?= e(number_format((float) $yp['percent'], 0)) ?>%</strong>
-                        <span>del año</span>
-                    </div>
-                </div>
-                <div class="year-progress-stats">
-                    <div class="year-stat">
-                        <span class="year-stat-value"><?= (int) $yp['days_elapsed'] ?></span>
-                        <span class="year-stat-label">días pasados</span>
-                    </div>
-                    <div class="year-stat">
-                        <span class="year-stat-value"><?= (int) $yp['days_remaining'] ?></span>
-                        <span class="year-stat-label">días restantes</span>
-                    </div>
-                    <div class="year-stat">
-                        <span class="year-stat-value"><?= (int) $yp['weeks_elapsed'] ?></span>
-                        <span class="year-stat-label">semanas pasadas</span>
-                    </div>
-                    <div class="year-stat">
-                        <span class="year-stat-value"><?= (int) $yp['weeks_remaining'] ?></span>
-                        <span class="year-stat-label">semanas restantes</span>
-                    </div>
-                </div>
-            </div>
-            <div class="year-progress-bar-block">
-                <div class="month-progress-head">
-                    <span class="muted small">Avance de <?= (int) $yp['year'] ?></span>
-                    <strong><?= (int) $yp['days_elapsed'] ?> / <?= (int) $yp['days_total'] ?> días</strong>
-                </div>
-                <div class="progress year-bar"><span style="width:<?= e((string) min(100, (float) $yp['percent'])) ?>%"></span></div>
-            </div>
-            <div class="year-months-block">
-                <div class="month-progress-head">
-                    <span class="muted small">Objetivos por mes</span>
-                    <span class="muted small">% con el mes tildado</span>
-                </div>
-                <div class="chart-box chart-box--months">
-                    <canvas id="yearMonths" aria-label="Avance de objetivos por mes"></canvas>
-                </div>
-            </div>
-            <script type="application/json" data-chart="yearRing"><?= json_encode($yearRingChart ?? [], JSON_UNESCAPED_UNICODE) ?></script>
-            <script type="application/json" data-chart="yearMonths"><?= json_encode($yearMonthsChart ?? [], JSON_UNESCAPED_UNICODE) ?></script>
-        </article>
-    </div>
-
-    <div class="today-col">
-        <article class="card weekly-today-card<?= $taskComplete ? ' is-complete' : '' ?>" data-day-date="<?= e($todayDate) ?>">
-            <div class="card-header">
-                <h2>Tareas del día</h2>
-                <a class="text-link" href="<?= e(url('/weekly')) ?>">Plan semanal →</a>
-            </div>
-            <div class="weekly-day-banner" data-day-banner <?= $taskComplete ? '' : 'hidden' ?>>
-                Carga diario 100% ejecutada
-            </div>
-            <div class="muted small" style="margin-bottom:10px">
-                <span data-day-pct><?= $taskDone ?>/<?= $taskTotal ?></span> · <?= e($todayLabel) ?>
-            </div>
+    <article class="card weekly-today-card today-panel today-panel--scroll<?= $taskComplete ? ' is-complete' : '' ?>" data-day-date="<?= e($todayDate) ?>">
+        <div class="card-header">
+            <h2>Tareas del día</h2>
+            <a class="text-link" href="<?= e(url('/weekly')) ?>">Plan semanal →</a>
+        </div>
+        <form method="post" action="<?= e(form_action()) ?>" class="weekly-add-form today-add-form" data-lq-save>
+            <?= csrf_field() ?>
+            <?= route_field('/weekly') ?>
+            <input type="hidden" name="task_date" value="<?= e($todayDate) ?>">
+            <input type="hidden" name="redirect" value="/today">
+            <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea de hoy…" aria-label="Nueva tarea de hoy">
+            <button type="submit" class="btn btn-ghost btn-sm">+</button>
+        </form>
+        <div class="weekly-day-banner" data-day-banner <?= $taskComplete ? '' : 'hidden' ?>>
+            Carga diaria 100% ejecutada
+        </div>
+        <div class="muted small today-task-meta">
+            <span data-day-pct><?= $taskDone ?>/<?= $taskTotal ?></span> · <?= e($todayLabel) ?>
+        </div>
+        <div class="today-panel-scroll">
             <ul class="habit-list weekly-task-list">
                 <?php if ($todayTasks === []): ?>
                     <li class="empty-state">No hay tareas para hoy. <a href="<?= e(url('/weekly')) ?>">Agregar en el plan semanal</a></li>
@@ -184,53 +138,108 @@ $taskComplete = !empty($todayTaskStats['complete']);
                     </li>
                 <?php endforeach; ?>
             </ul>
-            <form method="post" action="<?= e(form_action()) ?>" class="weekly-add-form" data-lq-save>
-                <?= csrf_field() ?>
-                <?= route_field('/weekly') ?>
-                <input type="hidden" name="task_date" value="<?= e($todayDate) ?>">
-                <input type="hidden" name="redirect" value="/today">
-                <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea de hoy…" aria-label="Nueva tarea de hoy">
-                <button type="submit" class="btn btn-ghost btn-sm">+</button>
-            </form>
-        </article>
-    </div>
-</section>
+        </div>
+    </article>
 
-<section class="card" style="margin-top:16px">
-    <div class="card-header">
-        <h2>Tu semana de hábitos</h2>
-        <span class="muted small">Por hábito · colores del día</span>
-    </div>
-    <div class="chart-box chart-box--week">
-        <canvas id="weekChart" aria-label="Progreso semanal por hábito"></canvas>
-    </div>
-    <script type="application/json" data-chart="weekChart"><?= json_encode([
-        'type' => 'bar',
-        'data' => $weeklyChart,
-        'options' => [
-            'scales' => [
-                'x' => [
-                    'stacked' => true,
-                    'grid' => ['display' => false],
+    <article class="card year-progress-card today-panel today-panel--bottom">
+        <div class="card-header">
+            <h2>Progreso del año</h2>
+            <span class="muted small"><?= (int) $yp['year'] ?></span>
+        </div>
+        <div class="year-progress">
+            <div class="year-ring-wrap">
+                <div class="chart-box chart-box--ring">
+                    <canvas id="yearRing" aria-label="Porcentaje del año transcurrido"></canvas>
+                </div>
+                <div class="year-ring-center">
+                    <strong><?= e(number_format((float) $yp['percent'], 0)) ?>%</strong>
+                    <span>del año</span>
+                </div>
+            </div>
+            <div class="year-progress-stats">
+                <div class="year-stat">
+                    <span class="year-stat-value"><?= (int) $yp['days_elapsed'] ?></span>
+                    <span class="year-stat-label">días pasados</span>
+                </div>
+                <div class="year-stat">
+                    <span class="year-stat-value"><?= (int) $yp['days_remaining'] ?></span>
+                    <span class="year-stat-label">días restantes</span>
+                </div>
+                <div class="year-stat">
+                    <span class="year-stat-value"><?= (int) $yp['weeks_elapsed'] ?></span>
+                    <span class="year-stat-label">semanas pasadas</span>
+                </div>
+                <div class="year-stat">
+                    <span class="year-stat-value"><?= (int) $yp['weeks_remaining'] ?></span>
+                    <span class="year-stat-label">semanas restantes</span>
+                </div>
+            </div>
+        </div>
+        <div class="year-progress-bar-block">
+            <div class="month-progress-head">
+                <span class="muted small">Avance de <?= (int) $yp['year'] ?></span>
+                <strong><?= (int) $yp['days_elapsed'] ?> / <?= (int) $yp['days_total'] ?> días</strong>
+            </div>
+            <div class="year-bar-track">
+                <div class="progress year-bar"><span style="width:<?= e((string) min(100, (float) $yp['percent'])) ?>%"></span></div>
+                <span
+                    class="year-bar-now"
+                    style="--now-pct:<?= e(number_format(min(100, max(0, (float) $yp['percent'])), 2, '.', '')) ?>%"
+                    title="Hoy · <?= e(number_format((float) $yp['percent'], 0)) ?>% del año"
+                    aria-hidden="true"
+                ></span>
+            </div>
+        </div>
+        <div class="year-months-block">
+            <div class="month-progress-head">
+                <span class="muted small">Objetivos por mes</span>
+                <span class="muted small">% con el mes tildado</span>
+            </div>
+            <div class="chart-box chart-box--months">
+                <canvas id="yearMonths" aria-label="Avance de objetivos por mes"></canvas>
+            </div>
+        </div>
+        <script type="application/json" data-chart="yearRing"><?= json_encode($yearRingChart ?? [], JSON_UNESCAPED_UNICODE) ?></script>
+        <script type="application/json" data-chart="yearMonths"><?= json_encode($yearMonthsChart ?? [], JSON_UNESCAPED_UNICODE) ?></script>
+    </article>
+
+    <article class="card today-panel today-panel--bottom">
+        <div class="card-header">
+            <h2>Tu semana de hábitos</h2>
+            <span class="muted small">Por hábito · colores del día</span>
+        </div>
+        <div class="chart-box chart-box--week">
+            <canvas id="weekChart" aria-label="Progreso semanal por hábito"></canvas>
+        </div>
+        <script type="application/json" data-chart="weekChart"><?= json_encode([
+            'type' => 'bar',
+            'data' => $weeklyChart,
+            'options' => [
+                'maintainAspectRatio' => false,
+                'scales' => [
+                    'x' => [
+                        'stacked' => true,
+                        'grid' => ['display' => false],
+                    ],
+                    'y' => [
+                        'stacked' => true,
+                        'beginAtZero' => true,
+                        'max' => 100,
+                    ],
                 ],
-                'y' => [
-                    'stacked' => true,
-                    'beginAtZero' => true,
-                    'max' => 100,
-                ],
-            ],
-            'plugins' => [
-                'legend' => [
-                    'display' => true,
-                    'position' => 'bottom',
-                    'labels' => [
-                        'boxWidth' => 10,
-                        'boxHeight' => 10,
-                        'padding' => 8,
-                        'font' => ['size' => 11],
+                'plugins' => [
+                    'legend' => [
+                        'display' => true,
+                        'position' => 'bottom',
+                        'labels' => [
+                            'boxWidth' => 10,
+                            'boxHeight' => 10,
+                            'padding' => 8,
+                            'font' => ['size' => 11],
+                        ],
                     ],
                 ],
             ],
-        ],
-    ], JSON_UNESCAPED_UNICODE) ?></script>
+        ], JSON_UNESCAPED_UNICODE) ?></script>
+    </article>
 </section>

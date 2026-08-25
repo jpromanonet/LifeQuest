@@ -119,9 +119,17 @@ $statusLabels = [
     <?php if ($books === []): ?>
         <p class="empty-state"><?= $allYears ? 'Todavía no cargaste libros.' : 'Todavía no cargaste libros para ' . (int) $year . '.' ?></p>
     <?php else: ?>
-        <div class="archive-table">
+        <div class="archive-table" data-sortable>
+            <div class="archive-table-head" role="row">
+                <button type="button" class="sort-btn" data-sort="title" aria-label="Ordenar por libro">Libro</button>
+                <button type="button" class="sort-btn" data-sort="meta" aria-label="Ordenar por estado">Detalle</button>
+            </div>
             <?php foreach ($books as $book): ?>
-                <div class="archive-row">
+                <div
+                    class="archive-row"
+                    data-sort-title="<?= e(mb_strtolower((string) $book['title'])) ?>"
+                    data-sort-meta="<?= e(mb_strtolower(($statusLabels[(string) ($book['status'] ?? '')] ?? (string) $book['status']) . ' ' . (string) ($book['year_num'] ?? ''))) ?>"
+                >
                     <div>
                         <strong><?= e((string) $book['title']) ?></strong>
                         <div class="muted small">

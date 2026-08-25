@@ -21,9 +21,16 @@ final class HabitsController
         $today = now_local()->format('Y-m-d');
         $logsToday = $this->habits->logsForDate($userId, $today);
 
+        $habitYear = (int) now_local()->format('Y');
         foreach ($list as &$habit) {
             $habit['log'] = $logsToday[(int) $habit['id']] ?? null;
             $habit['log_status'] = $habit['log']['status'] ?? null;
+            if (($habit['tracking_mode'] ?? '') === 'months') {
+                $mp = $this->habits->monthProgress($userId, (int) $habit['id'], $habitYear);
+                $habit['month_checks'] = $mp['months'];
+                $habit['progress_percent'] = $mp['percent'];
+                $habit['months_checked'] = $mp['checked'];
+            }
         }
         unset($habit);
 
@@ -31,7 +38,6 @@ final class HabitsController
         $streak = ['current_streak' => 0, 'best_streak' => 0];
         $recentLogs = [];
         $selectedMonths = MonthProgress::emptyMap();
-        $habitYear = (int) now_local()->format('Y');
         $selectedId = (int) (input('id') ?: 0);
         if ($selectedId > 0) {
             $selected = $this->habits->find($userId, $selectedId);
@@ -43,6 +49,7 @@ final class HabitsController
                     $selectedMonths = $mp['months'];
                     $selected['progress_percent'] = $mp['percent'];
                     $selected['months_checked'] = $mp['checked'];
+                    $selected['month_checks'] = $mp['months'];
                 }
             }
         }
@@ -79,7 +86,7 @@ final class HabitsController
             }
             $id = $this->habits->create($userId, $payload);
             $this->audit->log($userId, 'habit.create', 'habit', $id);
-            respond_saved('Hábito creado.', '/habits?id=' . $id);
+            respond_saved('Hábito creado.', '/habits');
         } catch (Throwable $e) {
             respond_error('No se pudo crear el hábito: ' . $e->getMessage(), '/habits');
         }
@@ -99,9 +106,9 @@ final class HabitsController
             }
             $this->habits->update($userId, $habitId, $payload);
             $this->audit->log($userId, 'habit.update', 'habit', $habitId);
-            respond_saved('Hábito actualizado.', '/habits?id=' . $habitId);
+            respond_saved('Hábito actualizado.', '/habits');
         } catch (Throwable $e) {
-            respond_error('No se pudo actualizar el hábito: ' . $e->getMessage(), '/habits?id=' . $habitId);
+            respond_error('No se pudo actualizar el hábito: ' . $e->getMessage(), '/habits');
         }
     }
 
@@ -228,13 +235,13 @@ final class HabitsController
                 json_response(['ok' => true, 'progress' => $progress]);
             }
             flash('success', 'Mes actualizado.');
-            redirect('/habits?id=' . $habitId);
+            redirect('/habits');
         } catch (Throwable $e) {
             if ($this->wantsJson()) {
                 json_response(['ok' => false, 'error' => $e->getMessage()], 422);
             }
             flash('error', 'No se pudo actualizar el mes.');
-            redirect('/habits?id=' . $habitId);
+            redirect('/habits');
         }
     }
 
@@ -246,10 +253,12 @@ final class HabitsController
         $habitId = (int) $id;
         $delta = input('delta');
         $set = input('current_value');
+        $target = input('target_per_period');
 
         try {
             if ($set !== null && $set !== '') {
-                $result = $this->habits->setUnits($userId, $habitId, (float) $set);
+                $targetVal = ($target !== null && $target !== '') ? (float) $target : null;
+                $result = $this->habits->setUnits($userId, $habitId, (float) $set, $targetVal);
             } else {
                 $result = $this->habits->bumpUnits($userId, $habitId, $delta !== null && $delta !== '' ? (float) $delta : 1.0);
             }
@@ -258,13 +267,13 @@ final class HabitsController
                 json_response(['ok' => true, 'progress' => $result]);
             }
             flash('success', 'Progreso actualizado.');
-            redirect('/habits?id=' . $habitId);
+            redirect('/habits');
         } catch (Throwable $e) {
             if ($this->wantsJson()) {
                 json_response(['ok' => false, 'error' => $e->getMessage()], 422);
             }
             flash('error', 'No se pudo actualizar las unidades.');
-            redirect('/habits?id=' . $habitId);
+            redirect('/habits');
         }
     }
 

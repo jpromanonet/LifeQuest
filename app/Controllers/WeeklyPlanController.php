@@ -25,17 +25,26 @@ final class WeeklyPlanController
         $prevMonday = $bounds['monday']->modify('-7 days')->format('Y-m-d');
         $nextMonday = $bounds['monday']->modify('+7 days')->format('Y-m-d');
         $currentBounds = $this->plan->weekBounds();
+        $isCurrentWeek = $bounds['monday']->format('Y-m-d') === $currentBounds['monday']->format('Y-m-d');
+
+        $today = now_local()->format('Y-m-d');
+        $dayFilter = $this->dayFilterFromRequest($board, $isCurrentWeek ? $today : null);
+        $visible = $this->visibleDays($board, $dayFilter, $isCurrentWeek ? $today : null);
 
         view('weekly/index', [
             'title' => 'Plan semanal',
             'currentNav' => 'weekly',
             'board' => $board,
+            'visibleDays' => $visible,
+            'dayFilter' => $dayFilter,
+            'todayDate' => $today,
             'stats' => $stats,
             'monday' => $bounds['monday'],
             'sunday' => $bounds['sunday'],
+            'weekParam' => $bounds['monday']->format('Y-m-d'),
             'prevMonday' => $prevMonday,
             'nextMonday' => $nextMonday,
-            'isCurrentWeek' => $bounds['monday']->format('Y-m-d') === $currentBounds['monday']->format('Y-m-d'),
+            'isCurrentWeek' => $isCurrentWeek,
             'flashSuccess' => flash('success'),
             'flashError' => flash('error'),
         ]);
@@ -170,9 +179,63 @@ final class WeeklyPlanController
 
     private function redirectForDate(string $date): string
     {
+        $params = [];
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-            return '/weekly?week=' . $date;
+            $params['week'] = $date;
+            $day = (string) (input('filter_day') ?: input('day') ?: '');
+            if ($day === 'all' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+                $params['day'] = $day;
+            } else {
+                $params['day'] = $date;
+            }
+            return '/weekly?' . http_build_query($params);
         }
         return '/weekly';
+    }
+
+    /**
+     * @param list<array<string, mixed>> $board
+     */
+    private function dayFilterFromRequest(array $board, ?string $today): string
+    {
+        $day = (string) (input('day') ?: '');
+        if ($day === 'all') {
+            return 'all';
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+            foreach ($board as $row) {
+                if ((string) ($row['date'] ?? '') === $day) {
+                    return $day;
+                }
+            }
+        }
+        // Semana actual: por defecto el día de hoy. Otras semanas: toda la semana.
+        if ($today !== null) {
+            foreach ($board as $row) {
+                if ((string) ($row['date'] ?? '') === $today) {
+                    return $today;
+                }
+            }
+        }
+        return 'all';
+    }
+
+    /**
+     * @param list<array<string, mixed>> $board
+     * @return list<array<string, mixed>>
+     */
+    private function visibleDays(array $board, string $dayFilter, ?string $today = null): array
+    {
+        if ($dayFilter === 'all') {
+            return $board;
+        }
+
+        foreach ($board as $row) {
+            if ((string) ($row['date'] ?? '') === $dayFilter) {
+                return [$row];
+            }
+        }
+
+        return $board;
     }
 }

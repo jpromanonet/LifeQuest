@@ -29,7 +29,11 @@ final class AuthController
         }
 
         if (!Auth::attempt($email, $password)) {
-            flash('error', 'Credenciales incorrectas o cuenta inactiva.');
+            if (Auth::isLoginLocked()) {
+                flash('error', 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.');
+            } else {
+                flash('error', 'Credenciales incorrectas o cuenta inactiva.');
+            }
             redirect('/login');
         }
 

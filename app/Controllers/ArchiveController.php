@@ -18,6 +18,7 @@ final class ArchiveController
              LEFT JOIN life_areas la ON la.id = g.area_id AND la.user_id = g.user_id
              WHERE g.user_id = :user_id
                AND g.deleted_at IS NULL
+               AND g.horizon <> \'largo_plazo\'
                AND (
                     g.status IN (\'completed\', \'archived\')
                     OR (g.period_year IS NOT NULL AND g.period_year < :year)

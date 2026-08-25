@@ -221,11 +221,18 @@ final class GoalsController
         $goalId = (int) $id;
 
         try {
+            $goal = $this->goals->find($userId, $goalId);
+            $year = (int) (
+                input('year')
+                ?: input('period_year')
+                ?: ($goal['period_year'] ?? now_local()->format('Y'))
+            );
             $this->goals->softDelete($userId, $goalId);
             $this->audit->log($userId, 'goal.delete', 'goal', $goalId);
-            respond_saved('Objetivo eliminado.', '/goals');
+            respond_saved('Objetivo eliminado.', '/goals?year=' . $year);
         } catch (Throwable $e) {
-            respond_error('No se pudo eliminar el objetivo.', '/goals');
+            $fallbackYear = (int) (input('year') ?: input('period_year') ?: now_local()->format('Y'));
+            respond_error('No se pudo eliminar el objetivo.', '/goals?year=' . $fallbackYear);
         }
     }
 

@@ -1,9 +1,30 @@
+# Secretos y entorno local (nunca commitear)
 .env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+
+# Dependencias y caché
+/vendor/
 /storage/*.log
 /storage/cache/*
 !/storage/cache/.gitkeep
 /storage/imports/
-/vendor/
 
-# Documentación de diseño y capturas propias: se mantienen locales.
+# Scripts temporales de diagnóstico (no van al repo)
+/_diag*.php
+/_reset*.php
+/storage/smoke_*.php
+/storage/*_diag*.php
+
+# Documentación de diseño y capturas propias: se mantienen locales
 /specs/
+
+# SO / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

@@ -11,6 +11,7 @@
 $activeCount = (int) ($counts['active'] ?? 0);
 $completedCount = (int) ($counts['completed'] ?? 0);
 $totalYearCount = array_sum($counts);
+$completionPct = $totalYearCount > 0 ? round(($completedCount / $totalYearCount) * 100, 1) : 0.0;
 $q = (string) ($filters['q'] ?? '');
 $availableYears = !empty($availableYears) ? $availableYears : [$year];
 $currentYear = (int) now_local()->format('Y');
@@ -102,6 +103,17 @@ $nextYear = $later !== [] ? min($later) : null;
     <button type="submit" class="btn btn-ghost">Filtrar</button>
 </form>
 
+<section class="goals-completion-bar card">
+    <div class="goals-completion-head">
+        <span class="kpi-label">Completitud <?= (int) $year ?></span>
+        <strong><?= e(number_format($completionPct, 0)) ?>%</strong>
+    </div>
+    <div class="progress goals-completion-track">
+        <span style="width:<?= e((string) min(100, $completionPct)) ?>%"></span>
+    </div>
+    <div class="muted small"><?= $completedCount ?> / <?= (int) $totalYearCount ?> objetivos completados</div>
+</section>
+
 <section class="kpi-grid kpi-grid-4">
     <article class="card kpi-card kpi-card--lavender">
         <div class="kpi-label">Totales <?= (int) $year ?></div>
@@ -142,13 +154,13 @@ $nextYear = $later !== [] ? min($later) : null;
             <?php if ($sectionGoals === []): ?>
                 <p class="muted small empty-section">Sin objetivos en esta área para <?= (int) $year ?>.</p>
             <?php else: ?>
-            <div class="goal-table">
-                <div class="goal-table-head">
-                    <span>Objetivo</span>
-                    <span>Progreso</span>
-                    <span>Estado</span>
-                    <span>Vencimiento</span>
-                    <span>Próxima acción</span>
+            <div class="goal-table" data-sortable>
+                <div class="goal-table-head" role="row">
+                    <button type="button" class="sort-btn" data-sort="title" aria-label="Ordenar por objetivo">Objetivo</button>
+                    <button type="button" class="sort-btn" data-sort="progress" data-sort-type="number" aria-label="Ordenar por progreso">Progreso</button>
+                    <button type="button" class="sort-btn" data-sort="status" aria-label="Ordenar por estado">Estado</button>
+                    <button type="button" class="sort-btn" data-sort="due" data-sort-type="date" aria-label="Ordenar por vencimiento">Vencimiento</button>
+                    <button type="button" class="sort-btn" data-sort="next" aria-label="Ordenar por próxima acción">Próxima acción</button>
                 </div>
                 <?php foreach ($sectionGoals as $goal):
                     $mode = (string) ($goal['progress_mode'] ?? 'months');
@@ -161,16 +173,23 @@ $nextYear = $later !== [] ? min($later) : null;
                     }
                     $binaryDone = $mode === 'binary' && ((float) $goal['progress_percent'] >= 100 || ($goal['status'] ?? '') === 'completed');
                     $isBooks = (string) ($goal['external_system'] ?? '') === 'books';
+                    $progressSort = $mode === 'binary' ? ($binaryDone ? 100 : 0) : (float) ($goal['progress_percent'] ?? 0);
                     ?>
                     <?php if ($isBooks): ?>
                     <a
                         class="goal-row goal-row-btn goal-row-link"
                         href="<?= e(url('/books?year=' . (int) ($goal['period_year'] ?? $year))) ?>"
                         title="Ir a la biblioteca del año"
+                        data-sort-title="<?= e(mb_strtolower((string) $goal['title'])) ?>"
+                        data-sort-progress="<?= e((string) $progressSort) ?>"
+                        data-sort-status="<?= e((string) $goal['status']) ?>"
+                        data-sort-due="<?= e((string) ($goal['due_date'] ?? '')) ?>"
+                        data-sort-next="<?= e(mb_strtolower((string) ($goal['next_action'] ?? ''))) ?>"
                     >
                     <?php else: ?>
-                    <button
-                        type="button"
+                    <div
+                        role="button"
+                        tabindex="0"
                         class="goal-row goal-row-btn"
                         data-edit-goal
                         data-id="<?= (int) $goal['id'] ?>"
@@ -189,6 +208,11 @@ $nextYear = $later !== [] ? min($later) : null;
                         data-due-date="<?= e((string) ($goal['due_date'] ?? '')) ?>"
                         data-next-action="<?= e((string) ($goal['next_action'] ?? '')) ?>"
                         data-success-criteria="<?= e((string) ($goal['success_criteria'] ?? '')) ?>"
+                        data-sort-title="<?= e(mb_strtolower((string) $goal['title'])) ?>"
+                        data-sort-progress="<?= e((string) $progressSort) ?>"
+                        data-sort-status="<?= e((string) $goal['status']) ?>"
+                        data-sort-due="<?= e((string) ($goal['due_date'] ?? '')) ?>"
+                        data-sort-next="<?= e(mb_strtolower((string) ($goal['next_action'] ?? ''))) ?>"
                     >
                     <?php endif; ?>
                         <span>
@@ -221,7 +245,7 @@ $nextYear = $later !== [] ? min($later) : null;
                         <span><span class="badge status-<?= e((string) $goal['status']) ?>"><?= e(status_label((string) $goal['status'])) ?></span></span>
                         <span class="muted small"><?= e(format_date($goal['due_date'] ?? null, 'd M Y')) ?></span>
                         <span class="small"><?= e((string) ($goal['next_action'] ?? '—')) ?></span>
-                    <?= $isBooks ? '</a>' : '</button>' ?>
+                    <?= $isBooks ? '</a>' : '</div>' ?>
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
@@ -475,6 +499,7 @@ $nextYear = $later !== [] ? min($later) : null;
     <form method="post" id="goalDeleteForm" action="<?= e(form_action()) ?>" hidden data-lq-save>
         <?= csrf_field() ?>
         <input type="hidden" name="r" id="deleteRoute" value="/goals/0/delete">
+        <input type="hidden" name="year" id="goalDeleteYear" value="<?= (int) $year ?>">
     </form>
     <form method="post" id="goalMonthToggleForm" action="<?= e(form_action()) ?>" hidden>
         <?= csrf_field() ?>

@@ -152,6 +152,12 @@ final class Auth
         return true;
     }
 
+    public static function isLoginLocked(): bool
+    {
+        $fails = $_SESSION['_login_fails'] ?? ['count' => 0, 'until' => 0];
+        return ((int) ($fails['until'] ?? 0)) > time();
+    }
+
     private static function recordLoginFailure(): void
     {
         $fails = $_SESSION['_login_fails'] ?? ['count' => 0, 'until' => 0];

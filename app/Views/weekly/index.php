@@ -1,13 +1,31 @@
 <?php
 /** @var list<array> $board */
+/** @var list<array> $visibleDays */
 /** @var array $stats */
 /** @var DateTimeImmutable $monday */
 /** @var DateTimeImmutable $sunday */
 /** @var string $prevMonday */
 /** @var string $nextMonday */
+/** @var string $weekParam */
+/** @var string $dayFilter */
+/** @var string $todayDate */
 /** @var bool $isCurrentWeek */
 
 $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
+$visibleDays = $visibleDays ?? $board;
+$dayFilter = $dayFilter ?? 'all';
+$weekParam = $weekParam ?? $monday->format('Y-m-d');
+$todayDate = $todayDate ?? now_local()->format('Y-m-d');
+
+$weekUrl = static function (string $week, string $day = 'all') use ($weekParam): string {
+    $params = ['week' => $week];
+    if ($day !== '' && $day !== 'all') {
+        $params['day'] = $day;
+    } elseif ($day === 'all') {
+        $params['day'] = 'all';
+    }
+    return url('/weekly?' . http_build_query($params));
+};
 ?>
 <section class="page-header with-actions">
     <div>
@@ -15,11 +33,11 @@ $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
         <p class="muted">Tareas de lunes a domingo · <?= e($weekRange) ?></p>
     </div>
     <div class="btn-row year-nav-week">
-        <a class="btn btn-ghost btn-sm" href="<?= e(url('/weekly?week=' . $prevMonday)) ?>">← Semana anterior</a>
+        <a class="btn btn-ghost btn-sm" href="<?= e($weekUrl($prevMonday, $dayFilter === 'all' ? 'all' : $dayFilter)) ?>">← Semana anterior</a>
         <?php if (!$isCurrentWeek): ?>
             <a class="btn btn-ghost btn-sm" href="<?= e(url('/weekly')) ?>">Semana actual</a>
         <?php endif; ?>
-        <a class="btn btn-ghost btn-sm" href="<?= e(url('/weekly?week=' . $nextMonday)) ?>">Semana siguiente →</a>
+        <a class="btn btn-ghost btn-sm" href="<?= e($weekUrl($nextMonday, $dayFilter === 'all' ? 'all' : $dayFilter)) ?>">Semana siguiente →</a>
     </div>
 </section>
 
@@ -48,9 +66,38 @@ $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
     </article>
 </section>
 
-<section class="weekly-board">
-    <?php foreach ($board as $day): ?>
-        <article class="card weekly-day<?= !empty($day['is_today']) ? ' is-today' : '' ?><?= !empty($day['complete']) ? ' is-complete' : '' ?>" data-day-date="<?= e((string) $day['date']) ?>">
+<nav class="weekly-day-filter" aria-label="Filtrar por día">
+    <a
+        class="weekly-day-chip<?= $dayFilter === 'all' ? ' is-active' : '' ?>"
+        href="<?= e($weekUrl($weekParam, 'all')) ?>"
+    >Toda la semana</a>
+    <?php foreach ($board as $day):
+        $date = (string) $day['date'];
+        $isActive = $dayFilter === $date;
+        $isToday = !empty($day['is_today']);
+        ?>
+        <a
+            class="weekly-day-chip<?= $isActive ? ' is-active' : '' ?><?= $isToday ? ' is-today-chip' : '' ?>"
+            href="<?= e($weekUrl($weekParam, $date)) ?>"
+        >
+            <?= e((string) $day['label']) ?>
+            <?php if ($isToday): ?><span>Hoy</span><?php endif; ?>
+        </a>
+    <?php endforeach; ?>
+</nav>
+
+<section class="weekly-board weekly-board--stack">
+    <?php foreach ($visibleDays as $day):
+        $returnPath = '/weekly?' . http_build_query([
+            'week' => $weekParam,
+            'day' => $dayFilter,
+        ]);
+        ?>
+        <article
+            class="card weekly-day<?= !empty($day['is_today']) ? ' is-today' : '' ?><?= !empty($day['complete']) ? ' is-complete' : '' ?>"
+            data-day-date="<?= e((string) $day['date']) ?>"
+            <?= !empty($day['is_today']) ? 'id="weekly-day-today"' : '' ?>
+        >
             <header class="weekly-day-head">
                 <div>
                     <strong><?= e((string) $day['label']) ?> <?= e((string) $day['date_label']) ?></strong>
@@ -61,8 +108,18 @@ $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
                 <span class="muted small weekly-day-pct" data-day-pct><?= (int) $day['done'] ?>/<?= (int) $day['total'] ?></span>
             </header>
 
+            <form method="post" action="<?= e(form_action()) ?>" class="weekly-add-form" data-lq-save>
+                <?= csrf_field() ?>
+                <?= route_field('/weekly') ?>
+                <input type="hidden" name="task_date" value="<?= e((string) $day['date']) ?>">
+                <input type="hidden" name="redirect" value="<?= e($returnPath) ?>">
+                <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
+                <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea…" aria-label="Nueva tarea para <?= e((string) $day['label']) ?>">
+                <button type="submit" class="btn btn-ghost btn-sm">+</button>
+            </form>
+
             <div class="weekly-day-banner" data-day-banner <?= empty($day['complete']) ? 'hidden' : '' ?>>
-                Carga diario 100% ejecutada
+                Carga diaria 100% ejecutada
             </div>
 
             <ul class="habit-list weekly-task-list">
@@ -77,7 +134,7 @@ $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
                             <?= csrf_field() ?>
                             <?= route_field('/weekly/' . (int) $task['id'] . '/toggle') ?>
                             <input type="hidden" name="status" value="<?= $done ? 'pending' : 'completed' ?>">
-                            <input type="hidden" name="redirect" value="/weekly?week=<?= e((string) $day['date']) ?>">
+                            <input type="hidden" name="redirect" value="<?= e($returnPath) ?>">
                             <label class="check-toggle">
                                 <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $task['title']) ?>">
                                 <span></span>
@@ -97,20 +154,13 @@ $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
                             <form method="post" action="<?= e(form_action()) ?>" data-lq-save onsubmit="return confirm('¿Eliminar esta tarea?');">
                                 <?= csrf_field() ?>
                                 <?= route_field('/weekly/' . (int) $task['id'] . '/delete') ?>
+                                <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
                                 <button type="submit" class="btn btn-danger btn-sm">×</button>
                             </form>
                         </div>
                     </li>
                 <?php endforeach; ?>
             </ul>
-
-            <form method="post" action="<?= e(form_action()) ?>" class="weekly-add-form" data-lq-save>
-                <?= csrf_field() ?>
-                <?= route_field('/weekly') ?>
-                <input type="hidden" name="task_date" value="<?= e((string) $day['date']) ?>">
-                <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea…" aria-label="Nueva tarea para <?= e((string) $day['label']) ?>">
-                <button type="submit" class="btn btn-ghost btn-sm">+</button>
-            </form>
         </article>
     <?php endforeach; ?>
 </section>
@@ -119,6 +169,7 @@ $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
     <form method="post" id="weeklyTaskForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>
         <input type="hidden" name="r" id="weeklyTaskRoute" value="/weekly/0">
+        <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
         <header class="modal-head">
             <h2 id="weeklyTaskModalTitle">Editar tarea</h2>
             <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">×</button>
@@ -145,3 +196,13 @@ $weekRange = $monday->format('d/m') . ' – ' . $sunday->format('d/m/Y');
         </footer>
     </form>
 </dialog>
+<script>
+(function () {
+  var today = document.getElementById('weekly-day-today');
+  if (today && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    window.setTimeout(function () {
+      today.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 80);
+  }
+})();
+</script>

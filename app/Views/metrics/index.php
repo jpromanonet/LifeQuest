@@ -108,7 +108,19 @@ if ($compareOptions === []) {
 </form>
 
 <section class="metrics-kpi-layout">
-    <?php $monthlyBar = $overview['monthly_completion'] ?? []; ?>
+    <?php
+    $monthlyBar = $overview['monthly_completion'] ?? [];
+    $nowLocal = now_local();
+    $currentYear = (int) $nowLocal->format('Y');
+    $yearNowPct = null;
+    if ($year < $currentYear) {
+        $yearNowPct = 100.0;
+    } elseif ($year === $currentYear) {
+        $daysTotal = (int) (new DateTimeImmutable($year . '-12-31', $nowLocal->getTimezone()))->format('z') + 1;
+        $daysElapsed = (int) $nowLocal->format('z') + 1;
+        $yearNowPct = $daysTotal > 0 ? round(($daysElapsed / $daysTotal) * 100, 2) : 0.0;
+    }
+    ?>
     <article class="card kpi-card kpi-card--mint kpi-card--featured kpi-card--completeness">
         <div class="kpi-featured-main">
             <div class="kpi-label">Completitud <?= (int) $year ?></div>
@@ -116,18 +128,29 @@ if ($compareOptions === []) {
             <div class="muted small"><?= (int) $overview['goals_completed'] ?> / <?= (int) $overview['goals_total'] ?> objetivos</div>
         </div>
         <div class="completeness-bar-wrap">
-            <div class="completeness-bar" role="img" aria-label="Completitud mensual de objetivos">
-                <?php foreach ($monthlyBar as $seg):
-                    $pct = min(100.0, max(0.0, (float) $seg['percent']));
-                    // Tramo siempre visible; la intensidad refleja el % del mes.
-                    $opacity = $pct <= 0 ? 0.22 : (0.28 + ($pct / 100) * 0.72);
-                    ?>
-                    <div
-                        class="completeness-seg"
-                        style="flex-grow:<?= (int) $seg['days'] ?>;--seg-color:<?= e((string) $seg['color']) ?>;--seg-opacity:<?= e(number_format($opacity, 2, '.', '')) ?>"
-                        title="<?= e($seg['label'] . ': ' . number_format($pct, 0) . '% (' . (int) $seg['checked'] . '/' . (int) $seg['total'] . ')') ?>"
-                    ></div>
-                <?php endforeach; ?>
+            <div class="completeness-track">
+                <div class="completeness-bar" role="img" aria-label="Completitud mensual de objetivos">
+                    <?php foreach ($monthlyBar as $seg):
+                        $pct = min(100.0, max(0.0, (float) $seg['percent']));
+                        $opacity = $pct <= 0 ? 0.22 : (0.28 + ($pct / 100) * 0.72);
+                        ?>
+                        <div
+                            class="completeness-seg"
+                            style="flex-grow:<?= (int) $seg['days'] ?>;--seg-color:<?= e((string) $seg['color']) ?>;--seg-opacity:<?= e(number_format($opacity, 2, '.', '')) ?>"
+                            title="<?= e($seg['label'] . ': ' . number_format($pct, 0) . '% (' . (int) $seg['checked'] . '/' . (int) $seg['total'] . ')') ?>"
+                        ></div>
+                    <?php endforeach; ?>
+                </div>
+                <?php if ($yearNowPct !== null): ?>
+                    <span
+                        class="completeness-now"
+                        style="--now-pct:<?= e(number_format(min(100, max(0, $yearNowPct)), 2, '.', '')) ?>%"
+                        title="<?= $year === $currentYear
+                            ? 'Hoy · ' . number_format((float) $yearNowPct, 0) . '% del año'
+                            : 'Fin de ' . (int) $year ?>"
+                        aria-hidden="true"
+                    ></span>
+                <?php endif; ?>
             </div>
             <div class="completeness-labels" aria-hidden="true">
                 <?php foreach ($monthlyBar as $seg): ?>

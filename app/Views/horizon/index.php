@@ -3,6 +3,10 @@
 /** @var list<array> $areas */
 /** @var array|null $selected */
 /** @var array<string,int> $totals */
+/** @var array{area_id:int,done:string} $filters */
+
+$filters = $filters ?? ['area_id' => 0, 'done' => ''];
+$hasFilters = ((int) ($filters['area_id'] ?? 0) > 0) || (($filters['done'] ?? '') !== '');
 
 $horizonDone = static function (array $goal): bool {
     return (float) ($goal['progress_percent'] ?? 0) >= 100 || ($goal['status'] ?? '') === 'completed';
@@ -23,20 +27,53 @@ $horizonDone = static function (array $goal): bool {
         <div class="muted small">Visión de largo plazo</div>
     </article>
     <article class="card kpi-card kpi-card--primary">
-        <div class="kpi-label">En curso</div>
-        <div class="kpi-value"><?= (int) (($totals['active'] ?? 0) + ($totals['planned'] ?? 0)) ?></div>
-        <div class="muted small">Activos y planificados</div>
+        <div class="kpi-label">En camino</div>
+        <div class="kpi-value"><?= (int) ($totals['in_progress'] ?? 0) ?></div>
+        <div class="muted small">Todavía no logrados</div>
     </article>
     <article class="card kpi-card kpi-card--mint">
         <div class="kpi-label">Logrados</div>
-        <div class="kpi-value"><?= (int) ($totals['completed'] ?? 0) ?></div>
+        <div class="kpi-value"><?= (int) ($totals['achieved'] ?? 0) ?></div>
         <div class="muted small">Completados</div>
     </article>
 </section>
 
+<form method="get" action="<?= e(form_action()) ?>" class="filters-bar">
+    <?= route_field('/horizon') ?>
+    <label>
+        <span class="sr-only">Área</span>
+        <select name="area" onchange="this.form.submit()" aria-label="Filtrar por área">
+            <option value="">Todas las áreas</option>
+            <?php foreach ($areas as $area): ?>
+                <option value="<?= (int) $area['id'] ?>" <?= (int) ($filters['area_id'] ?? 0) === (int) $area['id'] ? 'selected' : '' ?>>
+                    <?= e((string) $area['name']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <label>
+        <span class="sr-only">Logro</span>
+        <select name="done" onchange="this.form.submit()" aria-label="Filtrar por logro">
+            <option value="" <?= ($filters['done'] ?? '') === '' ? 'selected' : '' ?>>Todos (logro)</option>
+            <option value="no" <?= ($filters['done'] ?? '') === 'no' ? 'selected' : '' ?>>En camino</option>
+            <option value="yes" <?= ($filters['done'] ?? '') === 'yes' ? 'selected' : '' ?>>Logrados</option>
+        </select>
+    </label>
+    <?php if ($hasFilters): ?>
+        <a class="btn btn-ghost" href="<?= e(url('/horizon')) ?>">Limpiar</a>
+    <?php endif; ?>
+</form>
+
 <div class="goals-main">
     <?php if ($grouped === []): ?>
-        <div class="card empty-state">Todavía no hay horizontes. Creá el primero.</div>
+        <div class="card empty-state">
+            <?php if ($hasFilters): ?>
+                No hay horizontes con ese filtro.
+                <a class="text-link" href="<?= e(url('/horizon')) ?>">Ver todos</a>
+            <?php else: ?>
+                Todavía no hay horizontes. Creá el primero.
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
     <?php foreach ($grouped as $section):
@@ -52,18 +89,19 @@ $horizonDone = static function (array $goal): bool {
             <?php if ($goals === []): ?>
                 <p class="muted small empty-section">Sin horizontes en esta área.</p>
             <?php else: ?>
-                <div class="goal-table goal-table--horizon">
-                    <div class="goal-table-head">
-                        <span>Horizonte</span>
-                        <span>Logro</span>
-                        <span>Estado</span>
-                        <span>Próxima acción</span>
+                <div class="goal-table goal-table--horizon" data-sortable>
+                    <div class="goal-table-head" role="row">
+                        <button type="button" class="sort-btn" data-sort="title" aria-label="Ordenar por horizonte">Horizonte</button>
+                        <button type="button" class="sort-btn" data-sort="done" data-sort-type="number" aria-label="Ordenar por logro">Logro</button>
+                        <button type="button" class="sort-btn" data-sort="status" aria-label="Ordenar por estado">Estado</button>
+                        <button type="button" class="sort-btn" data-sort="next" aria-label="Ordenar por próxima acción">Próxima acción</button>
                     </div>
                     <?php foreach ($goals as $goal):
                         $done = $horizonDone($goal);
                         ?>
-                        <button
-                            type="button"
+                        <div
+                            role="button"
+                            tabindex="0"
                             class="goal-row goal-row-btn"
                             data-edit-horizon
                             data-id="<?= (int) $goal['id'] ?>"
@@ -74,6 +112,10 @@ $horizonDone = static function (array $goal): bool {
                             data-priority="<?= e((string) ($goal['priority'] ?? 'medium')) ?>"
                             data-done="<?= $done ? '1' : '0' ?>"
                             data-next-action="<?= e((string) ($goal['next_action'] ?? '')) ?>"
+                            data-sort-title="<?= e(mb_strtolower((string) $goal['title'])) ?>"
+                            data-sort-done="<?= $done ? '1' : '0' ?>"
+                            data-sort-status="<?= e((string) $goal['status']) ?>"
+                            data-sort-next="<?= e(mb_strtolower((string) ($goal['next_action'] ?? ''))) ?>"
                         >
                             <span>
                                 <strong><?= e((string) $goal['title']) ?></strong>
@@ -88,7 +130,7 @@ $horizonDone = static function (array $goal): bool {
                             </span>
                             <span><span class="badge status-<?= e((string) $goal['status']) ?>"><?= e(status_label((string) $goal['status'])) ?></span></span>
                             <span class="small"><?= e((string) ($goal['next_action'] ?? '—')) ?></span>
-                        </button>
+                        </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
@@ -111,6 +153,8 @@ $horizonDone = static function (array $goal): bool {
     <form method="post" id="horizonEditForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>
         <input type="hidden" name="r" id="horizonEditRoute" value="/horizon/0">
+        <input type="hidden" name="filter_area" value="<?= (int) ($filters['area_id'] ?? 0) ?>">
+        <input type="hidden" name="filter_done" value="<?= e((string) ($filters['done'] ?? '')) ?>">
         <header class="modal-head">
             <h2>Editar horizonte</h2>
             <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">×</button>
@@ -162,6 +206,8 @@ $horizonDone = static function (array $goal): bool {
     <form method="post" id="horizonDeleteForm" action="<?= e(form_action()) ?>" hidden data-lq-save>
         <?= csrf_field() ?>
         <input type="hidden" name="r" id="horizonDeleteRoute" value="/horizon/0/delete">
+        <input type="hidden" name="filter_area" value="<?= (int) ($filters['area_id'] ?? 0) ?>">
+        <input type="hidden" name="filter_done" value="<?= e((string) ($filters['done'] ?? '')) ?>">
     </form>
     <form method="post" id="horizonBinaryToggleForm" action="<?= e(form_action()) ?>" hidden>
         <?= csrf_field() ?>
@@ -173,6 +219,8 @@ $horizonDone = static function (array $goal): bool {
     <form method="post" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>
         <?= route_field('/horizon') ?>
+        <input type="hidden" name="filter_area" value="<?= (int) ($filters['area_id'] ?? 0) ?>">
+        <input type="hidden" name="filter_done" value="<?= e((string) ($filters['done'] ?? '')) ?>">
         <header class="modal-head">
             <h2>Nuevo horizonte</h2>
             <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">×</button>

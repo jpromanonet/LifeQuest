@@ -463,7 +463,7 @@ final class HabitService
         ];
     }
 
-    public function setUnits(int $userId, int $habitId, float $current): array
+    public function setUnits(int $userId, int $habitId, float $current, ?float $target = null): array
     {
         $habit = $this->find($userId, $habitId);
         if ($habit === null) {
@@ -473,16 +473,20 @@ final class HabitService
             throw new RuntimeException('Este hábito no se mide por unidades');
         }
 
-        $target = max(0.0, (float) ($habit['target_per_period'] ?? 0));
+        $target = $target !== null ? max(1.0, $target) : max(0.0, (float) ($habit['target_per_period'] ?? 0));
         $current = max(0.0, $current);
         $percent = $target > 0 ? round(min(100, ($current / $target) * 100), 2) : 0.0;
 
         Database::pdo()->prepare(
             'UPDATE habits
-             SET current_value = :current_value, progress_percent = :percent, updated_at = CURRENT_TIMESTAMP
+             SET current_value = :current_value,
+                 target_per_period = :target_per_period,
+                 progress_percent = :percent,
+                 updated_at = CURRENT_TIMESTAMP
              WHERE id = :id AND user_id = :user_id'
         )->execute([
             'current_value' => $current,
+            'target_per_period' => $target,
             'percent' => $percent,
             'id' => $habitId,
             'user_id' => $userId,
