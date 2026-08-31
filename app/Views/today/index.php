@@ -31,6 +31,19 @@ $taskTotal = (int) ($todayTaskStats['total'] ?? count($todayTasks));
 $taskDone = (int) ($todayTaskStats['done'] ?? 0);
 $taskPct = (float) ($todayTaskStats['percent'] ?? 0);
 $taskComplete = !empty($todayTaskStats['complete']);
+$todayHoursLabel = format_hours_progress(
+    (int) ($todayTaskStats['minutes_done'] ?? 0),
+    (int) ($todayTaskStats['minutes_total'] ?? 0)
+);
+$weekHours = $weekHours ?? ['minutes_done' => 0, 'minutes_total' => 0];
+$todayMinDone = (int) ($todayTaskStats['minutes_done'] ?? 0);
+$todayMinTotal = (int) ($todayTaskStats['minutes_total'] ?? 0);
+$weekMinDone = (int) ($weekHours['minutes_done'] ?? 0);
+$weekMinTotal = (int) ($weekHours['minutes_total'] ?? 0);
+$todayHoursPct = $todayMinTotal > 0 ? (int) min(100, round(($todayMinDone / $todayMinTotal) * 100)) : 0;
+$weekHoursPct = $weekMinTotal > 0 ? (int) min(100, round(($weekMinDone / $weekMinTotal) * 100)) : 0;
+$hasTodayHours = $todayMinTotal > 0;
+$hasWeekHours = $weekMinTotal > 0;
 ?>
 <section class="page-header">
     <div>
@@ -106,14 +119,48 @@ $taskComplete = !empty($todayTaskStats['complete']);
             <?= route_field('/weekly') ?>
             <input type="hidden" name="task_date" value="<?= e($todayDate) ?>">
             <input type="hidden" name="redirect" value="/today">
-            <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea de hoy…" aria-label="Nueva tarea de hoy">
-            <button type="submit" class="btn btn-ghost btn-sm">+</button>
+            <div class="weekly-add-main">
+                <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea de hoy…" aria-label="Nueva tarea de hoy">
+                <input type="time" name="start_time" aria-label="Horario de inicio" title="Horario de inicio">
+                <input type="number" name="estimated_minutes" min="1" max="1440" step="1" placeholder="min" aria-label="Tiempo estimado en minutos" title="Tiempo estimado (minutos)">
+                <button type="submit" class="btn btn-ghost btn-sm">+</button>
+            </div>
+            <?php $currentDow = (int) now_local()->format('N'); include dirname(__DIR__) . '/partials/task_repeat_picker.php'; ?>
         </form>
         <div class="weekly-day-banner" data-day-banner <?= $taskComplete ? '' : 'hidden' ?>>
             Carga diaria 100% ejecutada
         </div>
-        <div class="muted small today-task-meta">
-            <span data-day-pct><?= $taskDone ?>/<?= $taskTotal ?></span> · <?= e($todayLabel) ?>
+        <div class="today-hours-board">
+            <div class="today-hours-head">
+                <span class="today-hours-count" data-day-pct><?= $taskDone ?>/<?= $taskTotal ?></span>
+                <span class="today-hours-date"><?= e($todayLabel) ?></span>
+            </div>
+            <div class="today-hours-grid" data-hours-grid <?= ($hasTodayHours || $hasWeekHours) ? '' : 'hidden' ?>>
+                <div class="today-hours-card is-day" data-day-hours-card <?= $hasTodayHours ? '' : 'hidden' ?>>
+                    <div class="today-hours-kicker">Hoy</div>
+                    <div class="today-hours-value">
+                        <strong data-hours-done><?= e(format_hours_from_minutes($todayMinDone)) ?></strong>
+                        <span>de <span data-hours-total><?= e(format_hours_from_minutes($todayMinTotal)) ?></span> programadas</span>
+                    </div>
+                    <div class="progress today-hours-bar" aria-hidden="true">
+                        <span data-hours-bar style="width:<?= e((string) $todayHoursPct) ?>%"></span>
+                    </div>
+                    <div class="today-hours-foot"><span data-hours-pct><?= (int) $todayHoursPct ?>%</span> trabajadas</div>
+                    <span class="sr-only" data-day-hours><?= e($todayHoursLabel) ?></span>
+                </div>
+                <div class="today-hours-card is-week" data-week-hours-card <?= $hasWeekHours ? '' : 'hidden' ?>>
+                    <div class="today-hours-kicker">Semana</div>
+                    <div class="today-hours-value">
+                        <strong data-hours-done><?= e(format_hours_from_minutes($weekMinDone)) ?></strong>
+                        <span>de <span data-hours-total><?= e(format_hours_from_minutes($weekMinTotal)) ?></span> programadas</span>
+                    </div>
+                    <div class="progress today-hours-bar" aria-hidden="true">
+                        <span data-hours-bar style="width:<?= e((string) $weekHoursPct) ?>%"></span>
+                    </div>
+                    <div class="today-hours-foot"><span data-hours-pct><?= (int) $weekHoursPct ?>%</span> trabajadas</div>
+                    <span class="sr-only" data-week-hours-label><?= e(format_hours_progress($weekMinDone, $weekMinTotal)) ?></span>
+                </div>
+            </div>
         </div>
         <div class="today-panel-scroll">
             <ul class="habit-list weekly-task-list">
@@ -135,7 +182,27 @@ $taskComplete = !empty($todayTaskStats['complete']);
                                 <span></span>
                             </label>
                         </form>
-                        <span class="habit-name"><?= e((string) $task['title']) ?></span>
+                        <span class="habit-name">
+                            <?= e((string) $task['title']) ?>
+                            <?php include dirname(__DIR__) . '/partials/task_when.php'; ?>
+                            <?php include dirname(__DIR__) . '/partials/task_flags.php'; ?>
+                        </span>
+                        <div class="weekly-task-actions">
+                            <button type="button" class="btn btn-ghost btn-sm task-expand-btn" data-task-expand aria-expanded="false" title="Imagen y pasos">▾</button>
+                            <button
+                                type="button"
+                                class="btn btn-ghost btn-sm"
+                                data-edit-task
+                                data-id="<?= (int) $task['id'] ?>"
+                                data-title="<?= e((string) $task['title']) ?>"
+                                data-date="<?= e((string) $task['task_date']) ?>"
+                                data-notes="<?= e((string) ($task['notes'] ?? '')) ?>"
+                                data-start="<?= e(format_task_time($task['start_time'] ?? null)) ?>"
+                                data-minutes="<?= e((string) ((int) ($task['estimated_minutes'] ?? 0) > 0 ? (int) $task['estimated_minutes'] : '')) ?>"
+                            >Editar</button>
+                        </div>
+                        <?php $returnPath = '/today'; ?>
+                        <?php include dirname(__DIR__) . '/partials/task_detail.php'; ?>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -244,3 +311,40 @@ $taskComplete = !empty($todayTaskStats['complete']);
         ], JSON_UNESCAPED_UNICODE) ?></script>
     </article>
 </section>
+
+<script type="application/json" id="lq-week-titles"><?= json_encode($weekTitleIndex ?? [], JSON_UNESCAPED_UNICODE) ?></script>
+<dialog class="modal" id="weeklyTaskModal">
+    <form method="post" id="weeklyTaskForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
+        <?= csrf_field() ?>
+        <input type="hidden" name="r" id="weeklyTaskRoute" value="/weekly/0">
+        <input type="hidden" name="redirect" value="/today">
+        <input type="hidden" name="task_date" id="weeklyTaskDate" value="<?= e((string) $todayDate) ?>">
+        <header class="modal-head">
+            <h2>Editar tarea</h2>
+            <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">×</button>
+        </header>
+        <label class="field">
+            <span>Título</span>
+            <input type="text" name="title" id="weeklyTaskTitle" required maxlength="255">
+        </label>
+        <div class="form-grid-2">
+            <label class="field">
+                <span>Inicio</span>
+                <input type="time" name="start_time" id="weeklyTaskStart">
+            </label>
+            <label class="field">
+                <span>Tiempo estimado (minutos)</span>
+                <input type="number" name="estimated_minutes" id="weeklyTaskMinutes" min="1" max="1440" step="1" placeholder="Ej. 45">
+            </label>
+        </div>
+        <label class="field">
+            <span>Notas</span>
+            <textarea name="notes" id="weeklyTaskNotes" rows="2"></textarea>
+        </label>
+        <?php $currentDow = (int) now_local()->format('N'); include dirname(__DIR__) . '/partials/task_repeat_picker.php'; ?>
+        <footer class="modal-foot">
+            <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+        </footer>
+    </form>
+</dialog>

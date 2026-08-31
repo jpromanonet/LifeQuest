@@ -2261,8 +2261,112 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
   margin: 4px 0 10px;
 }
 
-.today-task-meta {
+.today-hours-board {
+  margin: 0 0 10px;
+}
+
+.today-hours-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
+}
+
+.today-hours-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.today-hours-date {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+.today-hours-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.today-hours-card {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+}
+
+.today-hours-card.is-day {
+  background: color-mix(in srgb, var(--color-mint) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-mint) 38%, var(--color-border));
+}
+
+.today-hours-card.is-week {
+  background: color-mix(in srgb, var(--color-lavender) 18%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-lavender) 40%, var(--color-border));
+}
+
+.today-hours-kicker {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.today-hours-value {
+  margin-top: 2px;
+}
+
+.today-hours-value strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.today-hours-value span {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+.today-hours-bar {
+  height: 6px;
+  margin: 8px 0 5px;
+  background: color-mix(in srgb, var(--color-text) 8%, var(--color-surface));
+}
+
+.today-hours-card.is-day .today-hours-bar > span {
+  background: linear-gradient(90deg, var(--color-mint), var(--color-success));
+}
+
+.today-hours-card.is-week .today-hours-bar > span {
+  background: linear-gradient(90deg, var(--color-lavender), var(--color-primary));
+}
+
+.today-hours-foot {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .today-hours-card.is-day {
+  background: color-mix(in srgb, var(--color-mint) 14%, var(--color-surface));
+}
+
+[data-theme="dark"] .today-hours-card.is-week {
+  background: color-mix(in srgb, var(--color-lavender) 14%, var(--color-surface));
 }
 
 .today-panel .chart-box--week {
@@ -2355,9 +2459,32 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
 
 .weekly-day-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+}
+
+.weekly-day-hours {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+.weekly-day-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.weekly-day-hours-short {
+  white-space: nowrap;
+  font-weight: 700;
 }
 
 .weekly-today-pill {
@@ -2392,14 +2519,148 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
   flex-shrink: 0;
 }
 
+/* ── Tareas: imagen + checklist ── */
+.weekly-task-row {
+  flex-wrap: wrap;
+}
+
+.task-flags {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.task-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.task-flag-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.task-expand-btn {
+  padding: 4px 8px;
+  transition: transform 0.15s ease;
+}
+
+.task-expand-btn.is-open {
+  transform: rotate(180deg);
+}
+
+.task-detail {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+}
+
+.task-image {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.task-image img {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 10px;
+  display: block;
+}
+
+.task-image-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.task-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.task-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.task-step:hover {
+  background: rgb(0 0 0 / 4%);
+}
+
+[data-theme="dark"] .task-step:hover {
+  background: rgb(255 255 255 / 6%);
+}
+
+.task-step-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+
+.task-step.is-done .task-step-title {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.task-step-delete {
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.task-step:hover .task-step-delete,
+.task-step:focus-within .task-step-delete {
+  opacity: 1;
+}
+
+.task-step-add {
+  margin-top: 2px;
+}
+
 .weekly-add-form {
   display: flex;
+  flex-direction: column;
   gap: 6px;
   margin-top: 4px;
 }
 
-.weekly-add-form input[type="text"] {
-  flex: 1;
+.weekly-add-main {
+  display: flex;
+  gap: 6px;
+}
+
+.weekly-add-main input[type="text"],
+.weekly-add-main input[type="time"],
+.weekly-add-main input[type="number"] {
   min-width: 0;
   padding: 8px 10px;
   border: 1px solid var(--color-border);
@@ -2407,6 +2668,117 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
   color: var(--color-text);
   font: inherit;
   border-radius: 10px;
+}
+
+.weekly-add-main input[type="text"] {
+  flex: 1;
+}
+
+.weekly-add-main input[type="time"] {
+  width: 7.6rem;
+  flex: 0 0 auto;
+}
+
+.weekly-add-main input[name="estimated_minutes"] {
+  width: 4.6rem;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.stack-form .task-repeat-picker {
+  margin: 4px 0 8px;
+}
+
+.task-repeat-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.task-repeat-label {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+  margin-right: 2px;
+}
+
+.task-repeat-chip {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.task-repeat-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.task-repeat-chip span {
+  display: inline-flex;
+  min-width: 2.2rem;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.task-repeat-chip.is-today-day span {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+}
+
+.task-repeat-chip.is-disabled {
+  cursor: not-allowed;
+}
+
+.task-repeat-chip.is-disabled span,
+.task-repeat-chip input:disabled + span {
+  opacity: 0.42;
+  background: var(--color-surface-alt);
+}
+
+.task-repeat-chip input:focus-visible + span {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.task-repeat-chip input:checked + span {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+[data-theme="dark"] .task-repeat-chip input:checked + span {
+  color: rgb(0 0 0 / 75%);
+}
+
+.task-when {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--color-primary-strong);
+  background: var(--color-primary-soft);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.kpi-value[data-week-hours-short] {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .weekly-kpi {

@@ -394,6 +394,9 @@ CREATE TABLE IF NOT EXISTS weekly_tasks (
   task_date DATE NOT NULL,
   title VARCHAR(255) NOT NULL,
   notes TEXT NULL,
+  image_path VARCHAR(255) NULL,
+  start_time TIME NULL,
+  estimated_minutes INT UNSIGNED NULL,
   is_done TINYINT(1) NOT NULL DEFAULT 0,
   sort_order INT NOT NULL DEFAULT 0,
   completed_at DATETIME NULL,
@@ -402,6 +405,22 @@ CREATE TABLE IF NOT EXISTS weekly_tasks (
   deleted_at DATETIME NULL,
   KEY idx_weekly_tasks_user_date (user_id, task_date, deleted_at),
   CONSTRAINT fk_weekly_tasks_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS weekly_task_steps (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  task_id BIGINT UNSIGNED NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  is_done TINYINT(1) NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  KEY idx_task_steps_task (task_id, deleted_at, sort_order),
+  KEY idx_task_steps_user (user_id, deleted_at),
+  CONSTRAINT fk_task_steps_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_task_steps_task FOREIGN KEY (task_id) REFERENCES weekly_tasks(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS rule_categories (

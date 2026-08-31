@@ -68,9 +68,13 @@ $router->post('/horizon/{id}/delete', [$horizon, 'destroy']);
 $weekly = new WeeklyPlanController();
 $router->get('/weekly', [$weekly, 'index']);
 $router->post('/weekly', [$weekly, 'store']);
+$router->post('/weekly/steps/{id}/toggle', [$weekly, 'toggleStep']);
+$router->post('/weekly/steps/{id}/delete', [$weekly, 'deleteStep']);
 $router->post('/weekly/{id}', [$weekly, 'update']);
 $router->post('/weekly/{id}/delete', [$weekly, 'destroy']);
 $router->post('/weekly/{id}/toggle', [$weekly, 'toggle']);
+$router->post('/weekly/{id}/image', [$weekly, 'image']);
+$router->post('/weekly/{id}/steps', [$weekly, 'addStep']);
 
 $rules = new RulesController();
 $router->get('/rules', [$rules, 'index']);

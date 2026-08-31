@@ -55,7 +55,15 @@ final class TodayController
         $yearMonthsChart = $this->yearMonthsChart($userId, (int) $now->format('Y'));
 
         $weekly = new WeeklyPlanService();
-        $todayTasks = $weekly->listForDate($userId, $now->format('Y-m-d'));
+        $weekBoard = $weekly->weekBoard($userId, $now);
+        $todayDate = $now->format('Y-m-d');
+        $todayTasks = [];
+        foreach ($weekBoard as $day) {
+            if ((string) ($day['date'] ?? '') === $todayDate) {
+                $todayTasks = $day['tasks'] ?? [];
+                break;
+            }
+        }
         $taskDone = 0;
         foreach ($todayTasks as $task) {
             if ((int) ($task['is_done'] ?? 0) === 1) {
@@ -63,6 +71,13 @@ final class TodayController
             }
         }
         $taskTotal = count($todayTasks);
+        $todayMins = WeeklyPlanService::minutesFromTasks($todayTasks);
+        $weekMinTotal = 0;
+        $weekMinDone = 0;
+        foreach ($weekBoard as $day) {
+            $weekMinTotal += (int) ($day['minutes_total'] ?? 0);
+            $weekMinDone += (int) ($day['minutes_done'] ?? 0);
+        }
 
         view('today/index', [
             'title' => 'Hoy',
@@ -78,13 +93,20 @@ final class TodayController
             'yearProgress' => $yearProgress,
             'yearRingChart' => $yearRingChart,
             'yearMonthsChart' => $yearMonthsChart,
-            'todayDate' => $now->format('Y-m-d'),
+            'todayDate' => $todayDate,
             'todayTasks' => $todayTasks,
+            'weekTitleIndex' => WeeklyPlanService::titleIndexFromBoard($weekBoard),
             'todayTaskStats' => [
                 'total' => $taskTotal,
                 'done' => $taskDone,
                 'percent' => $taskTotal > 0 ? round(($taskDone / $taskTotal) * 100, 1) : 0.0,
                 'complete' => $taskTotal > 0 && $taskDone === $taskTotal,
+                'minutes_total' => $todayMins['total'],
+                'minutes_done' => $todayMins['done'],
+            ],
+            'weekHours' => [
+                'minutes_total' => $weekMinTotal,
+                'minutes_done' => $weekMinDone,
             ],
         ]);
     }

@@ -264,6 +264,72 @@ function format_date(?string $date, string $format = 'd M Y'): string
     }
 }
 
+/** HH:MM a partir de un TIME de MySQL, o cadena vacía. */
+function format_task_time(mixed $time): string
+{
+    if ($time === null || $time === '') {
+        return '';
+    }
+    $s = (string) $time;
+    return strlen($s) >= 5 ? substr($s, 0, 5) : $s;
+}
+
+/** "45 min", "1 h", "1 h 30 min". */
+function format_task_duration(mixed $minutes): string
+{
+    $n = (int) $minutes;
+    if ($n < 1) {
+        return '';
+    }
+    if ($n < 60) {
+        return $n . ' min';
+    }
+    $h = intdiv($n, 60);
+    $m = $n % 60;
+    return $m === 0 ? $h . ' h' : $h . ' h ' . $m . ' min';
+}
+
+/** Igual que format_task_duration, o "0 h" si no hay minutos. */
+function format_hours_from_minutes(mixed $minutes): string
+{
+    $label = format_task_duration($minutes);
+    return $label !== '' ? $label : '0 h';
+}
+
+/** "1 h 30 min trabajadas de 4 h programadas". Vacío si no hay tiempo cargado. */
+function format_hours_progress(int $doneMinutes, int $totalMinutes): string
+{
+    if ($totalMinutes < 1) {
+        return '';
+    }
+    return format_hours_from_minutes($doneMinutes) . ' trabajadas de ' . format_hours_from_minutes($totalMinutes) . ' programadas';
+}
+
+/** "1 h 30 min / 4 h". Vacío si no hay tiempo cargado. */
+function format_hours_short(int $doneMinutes, int $totalMinutes): string
+{
+    if ($totalMinutes < 1) {
+        return '';
+    }
+    return format_hours_from_minutes($doneMinutes) . ' / ' . format_hours_from_minutes($totalMinutes);
+}
+
+/**
+ * @return array{minutes_done:int,minutes_total:int,label:string,short:string,percent:float,done_label:string,total_label:string}
+ */
+function hours_stats_payload(int $doneMinutes, int $totalMinutes): array
+{
+    return [
+        'minutes_done' => $doneMinutes,
+        'minutes_total' => $totalMinutes,
+        'label' => format_hours_progress($doneMinutes, $totalMinutes),
+        'short' => format_hours_short($doneMinutes, $totalMinutes),
+        'percent' => $totalMinutes > 0 ? round(($doneMinutes / $totalMinutes) * 100, 1) : 0.0,
+        'done_label' => format_hours_from_minutes($doneMinutes),
+        'total_label' => format_hours_from_minutes($totalMinutes),
+    ];
+}
+
 function greeting_for_hour(int $hour): string
 {
     if ($hour < 12) {

@@ -6,6 +6,9 @@
 *.key
 credentials.json
 
+# Subidas del usuario (imágenes de tareas): quedan en el servidor
+/assets/uploads/
+
 # Dependencias y caché
 /vendor/
 /storage/*.log

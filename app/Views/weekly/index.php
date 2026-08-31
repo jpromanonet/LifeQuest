@@ -57,12 +57,32 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
         <div class="kpi-label">Hoy</div>
         <div class="kpi-value"><?= (int) $stats['today_done'] ?>/<?= (int) $stats['today_total'] ?></div>
         <div class="progress kpi-bar"><span style="width:<?= e((string) min(100, (float) $stats['today_percent'])) ?>%"></span></div>
-        <div class="muted small"><?= e(number_format((float) $stats['today_percent'], 0)) ?>% del día</div>
+        <?php
+        $todayHoursLabel = format_hours_progress(
+            (int) ($stats['today_minutes_done'] ?? 0),
+            (int) ($stats['today_minutes_total'] ?? 0)
+        );
+        ?>
+        <div class="muted small" data-today-hours><?= e($todayHoursLabel !== '' ? $todayHoursLabel : number_format((float) $stats['today_percent'], 0) . '% del día') ?></div>
     </article>
     <article class="card kpi-card kpi-card--peach">
-        <div class="kpi-label">Días planificados</div>
-        <div class="kpi-value"><?= (int) $stats['days_planned'] ?></div>
-        <div class="muted small">De 7 en esta semana</div>
+        <div class="kpi-label">Horas de la semana</div>
+        <?php
+        $weekHoursShort = format_hours_short(
+            (int) ($stats['week_minutes_done'] ?? 0),
+            (int) ($stats['week_minutes_total'] ?? 0)
+        );
+        $weekHoursLabel = format_hours_progress(
+            (int) ($stats['week_minutes_done'] ?? 0),
+            (int) ($stats['week_minutes_total'] ?? 0)
+        );
+        $weekHoursPct = (int) ($stats['week_minutes_total'] ?? 0) > 0
+            ? min(100, round(((int) $stats['week_minutes_done'] / (int) $stats['week_minutes_total']) * 100))
+            : 0;
+        ?>
+        <div class="kpi-value" data-week-hours-short><?= e($weekHoursShort !== '' ? $weekHoursShort : '0 h') ?></div>
+        <div class="progress kpi-bar"><span data-week-hours-bar style="width:<?= e((string) $weekHoursPct) ?>%"></span></div>
+        <div class="muted small" data-week-hours><?= e($weekHoursLabel !== '' ? $weekHoursLabel : 'Sin tiempo estimado') ?></div>
     </article>
 </section>
 
@@ -104,8 +124,19 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                     <?php if (!empty($day['is_today'])): ?>
                         <span class="weekly-today-pill">Hoy</span>
                     <?php endif; ?>
+                    <?php
+                    $dayHoursLabel = format_hours_progress(
+                        (int) ($day['minutes_done'] ?? 0),
+                        (int) ($day['minutes_total'] ?? 0)
+                    );
+                    ?>
+                    <div class="weekly-day-hours" data-day-hours <?= $dayHoursLabel === '' ? 'hidden' : '' ?>><?= e($dayHoursLabel) ?></div>
                 </div>
-                <span class="muted small weekly-day-pct" data-day-pct><?= (int) $day['done'] ?>/<?= (int) $day['total'] ?></span>
+                <div class="weekly-day-meta">
+                    <span class="muted small weekly-day-pct" data-day-pct><?= (int) $day['done'] ?>/<?= (int) $day['total'] ?></span>
+                    <?php $dayHoursShort = format_hours_short((int) ($day['minutes_done'] ?? 0), (int) ($day['minutes_total'] ?? 0)); ?>
+                    <span class="muted small weekly-day-hours-short" data-day-hours-short <?= $dayHoursShort === '' ? 'hidden' : '' ?>><?= e($dayHoursShort) ?></span>
+                </div>
             </header>
 
             <form method="post" action="<?= e(form_action()) ?>" class="weekly-add-form" data-lq-save>
@@ -114,8 +145,13 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                 <input type="hidden" name="task_date" value="<?= e((string) $day['date']) ?>">
                 <input type="hidden" name="redirect" value="<?= e($returnPath) ?>">
                 <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
-                <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea…" aria-label="Nueva tarea para <?= e((string) $day['label']) ?>">
-                <button type="submit" class="btn btn-ghost btn-sm">+</button>
+                <div class="weekly-add-main">
+                    <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea…" aria-label="Nueva tarea para <?= e((string) $day['label']) ?>">
+                    <input type="time" name="start_time" aria-label="Horario de inicio" title="Horario de inicio">
+                    <input type="number" name="estimated_minutes" min="1" max="1440" step="1" placeholder="min" aria-label="Tiempo estimado en minutos" title="Tiempo estimado (minutos)">
+                    <button type="submit" class="btn btn-ghost btn-sm">+</button>
+                </div>
+                <?php $currentDow = (int) ($day['dow'] ?? 0); include dirname(__DIR__) . '/partials/task_repeat_picker.php'; ?>
             </form>
 
             <div class="weekly-day-banner" data-day-banner <?= empty($day['complete']) ? 'hidden' : '' ?>>
@@ -141,8 +177,13 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                                 <span></span>
                             </label>
                         </form>
-                        <span class="habit-name"><?= e((string) $task['title']) ?></span>
+                        <span class="habit-name">
+                            <?= e((string) $task['title']) ?>
+                            <?php include dirname(__DIR__) . '/partials/task_when.php'; ?>
+                            <?php include dirname(__DIR__) . '/partials/task_flags.php'; ?>
+                        </span>
                         <div class="weekly-task-actions">
+                            <button type="button" class="btn btn-ghost btn-sm task-expand-btn" data-task-expand aria-expanded="false" title="Imagen y pasos">▾</button>
                             <button
                                 type="button"
                                 class="btn btn-ghost btn-sm"
@@ -151,6 +192,8 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                                 data-title="<?= e((string) $task['title']) ?>"
                                 data-date="<?= e((string) $task['task_date']) ?>"
                                 data-notes="<?= e((string) ($task['notes'] ?? '')) ?>"
+                                data-start="<?= e(format_task_time($task['start_time'] ?? null)) ?>"
+                                data-minutes="<?= e((string) ((int) ($task['estimated_minutes'] ?? 0) > 0 ? (int) $task['estimated_minutes'] : '')) ?>"
                             >Editar</button>
                             <form method="post" action="<?= e(form_action()) ?>" data-lq-save onsubmit="return confirm('¿Eliminar esta tarea?');">
                                 <?= csrf_field() ?>
@@ -159,6 +202,7 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                                 <button type="submit" class="btn btn-danger btn-sm">×</button>
                             </form>
                         </div>
+                        <?php include dirname(__DIR__) . '/partials/task_detail.php'; ?>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -166,11 +210,13 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
     <?php endforeach; ?>
 </section>
 
+<script type="application/json" id="lq-week-titles"><?= json_encode(WeeklyPlanService::titleIndexFromBoard($board), JSON_UNESCAPED_UNICODE) ?></script>
 <dialog class="modal" id="weeklyTaskModal">
     <form method="post" id="weeklyTaskForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>
         <input type="hidden" name="r" id="weeklyTaskRoute" value="/weekly/0">
         <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
+        <input type="hidden" name="redirect" value="<?= e('/weekly?' . http_build_query(['week' => $weekParam, 'day' => $dayFilter])) ?>">
         <header class="modal-head">
             <h2 id="weeklyTaskModalTitle">Editar tarea</h2>
             <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">×</button>
@@ -187,10 +233,21 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                 <?php endforeach; ?>
             </select>
         </label>
+        <div class="form-grid-2">
+            <label class="field">
+                <span>Inicio</span>
+                <input type="time" name="start_time" id="weeklyTaskStart">
+            </label>
+            <label class="field">
+                <span>Tiempo estimado (minutos)</span>
+                <input type="number" name="estimated_minutes" id="weeklyTaskMinutes" min="1" max="1440" step="1" placeholder="Ej. 45">
+            </label>
+        </div>
         <label class="field">
             <span>Notas</span>
             <textarea name="notes" id="weeklyTaskNotes" rows="2"></textarea>
         </label>
+        <?php $currentDow = 0; include dirname(__DIR__) . '/partials/task_repeat_picker.php'; ?>
         <footer class="modal-foot">
             <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
             <button type="submit" class="btn btn-primary">Guardar</button>

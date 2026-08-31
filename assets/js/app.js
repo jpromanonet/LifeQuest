@@ -166,6 +166,101 @@
     });
   }
 
+  function setHoursText(el, text, prefix) {
+    if (!el) {
+      return;
+    }
+    var value = text || '';
+    if (value && prefix) {
+      value = prefix + value;
+    }
+    el.textContent = value;
+    el.hidden = value === '';
+  }
+
+  function applyHoursCard(card, hours) {
+    if (!card) {
+      return;
+    }
+    hours = hours || {};
+    var total = Number(hours.minutes_total) || 0;
+    var has = total > 0;
+    card.hidden = !has;
+    if (!has) {
+      return;
+    }
+    var doneEl = card.querySelector('[data-hours-done]');
+    var totalEl = card.querySelector('[data-hours-total]');
+    var bar = card.querySelector('[data-hours-bar]');
+    var pct = card.querySelector('[data-hours-pct]');
+    var percent = Math.min(100, Number(hours.percent) || 0);
+    if (doneEl) {
+      doneEl.textContent = hours.done_label || '0 h';
+    }
+    if (totalEl) {
+      totalEl.textContent = hours.total_label || '0 h';
+    }
+    if (bar) {
+      bar.style.width = percent + '%';
+    }
+    if (pct) {
+      pct.textContent = String(Math.round(percent)) + '%';
+    }
+  }
+
+  function syncHoursGrid(root) {
+    var grid = (root || document).querySelector('[data-hours-grid]');
+    if (!grid) {
+      return;
+    }
+    var visible = false;
+    grid.querySelectorAll('.today-hours-card').forEach(function (card) {
+      if (!card.hidden) {
+        visible = true;
+      }
+    });
+    grid.hidden = !visible;
+  }
+
+  function updateWeekHours(weekStats) {
+    if (!weekStats) {
+      return;
+    }
+    var hours = weekStats.hours || {};
+    var todayHours = weekStats.today_hours || {};
+    document.querySelectorAll('[data-week-hours-card]').forEach(function (card) {
+      applyHoursCard(card, hours);
+    });
+    document.querySelectorAll('[data-week-hours]').forEach(function (el) {
+      if (el.closest('.today-hours-board')) {
+        return;
+      }
+      setHoursText(el, hours.label || '');
+      if (!hours.label) {
+        el.textContent = 'Sin tiempo estimado';
+        el.hidden = false;
+      }
+    });
+    document.querySelectorAll('[data-week-hours-short]').forEach(function (el) {
+      el.textContent = hours.short || '0 h';
+    });
+    document.querySelectorAll('[data-week-hours-bar]').forEach(function (el) {
+      el.style.width = String(Math.min(100, Number(hours.percent) || 0)) + '%';
+    });
+    document.querySelectorAll('[data-today-hours]').forEach(function (el) {
+      if (el.closest('.today-hours-board') || el.hasAttribute('data-day-hours')) {
+        return;
+      }
+      if (todayHours.label) {
+        el.textContent = todayHours.label;
+        el.hidden = false;
+      }
+    });
+    document.querySelectorAll('[data-hours-grid]').forEach(function (grid) {
+      syncHoursGrid(grid.parentElement || document);
+    });
+  }
+
   function updateDayBanner(dayRoot, dayStats) {
     if (!dayRoot || !dayStats) {
       return;
@@ -179,6 +274,11 @@
       banner.hidden = !dayStats.complete;
     }
     dayRoot.classList.toggle('is-complete', !!dayStats.complete);
+    var hours = dayStats.hours || {};
+    applyHoursCard(dayRoot.querySelector('[data-day-hours-card]'), hours);
+    setHoursText(dayRoot.querySelector('[data-day-hours]'), hours.label || '');
+    setHoursText(dayRoot.querySelector('[data-day-hours-short]'), hours.short || '');
+    syncHoursGrid(dayRoot);
   }
 
   function initTaskToggles() {
@@ -217,6 +317,9 @@
             if (data && data.day) {
               updateDayBanner(dayRoot, data.day);
             }
+            if (data && data.week) {
+              updateWeekHours(data.week);
+            }
           })
           .catch(function () {
             checkbox.checked = !checkbox.checked;
@@ -225,6 +328,118 @@
             }
           });
       });
+    });
+  }
+
+  function weekTitleIndex() {
+    var el = document.getElementById('lq-week-titles');
+    if (!el) {
+      return {};
+    }
+    try {
+      var data = JSON.parse(el.textContent || '{}');
+      return data && typeof data === 'object' ? data : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function normalizeTitleKey(title) {
+    return String(title || '').trim().toLowerCase();
+  }
+
+  function isoDowFromDate(dateStr) {
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return 0;
+    }
+    var d = new Date(dateStr + 'T12:00:00');
+    if (isNaN(d.getTime())) {
+      return 0;
+    }
+    var n = d.getDay();
+    return n === 0 ? 7 : n;
+  }
+
+  function dayHasTitle(index, dow, titleKey, skipOne) {
+    var list = index[String(dow)] || [];
+    var count = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] === titleKey) {
+        count++;
+      }
+    }
+    if (skipOne) {
+      count -= 1;
+    }
+    return count > 0;
+  }
+
+  function syncRepeatChips(form) {
+    if (!form) {
+      return;
+    }
+    var chips = form.querySelectorAll('input[name="repeat_days[]"]');
+    if (!chips.length) {
+      return;
+    }
+    var titleInput = form.querySelector('[name="title"]');
+    var dateInput = form.querySelector('[name="task_date"]');
+    var titleKey = normalizeTitleKey(titleInput ? titleInput.value : '');
+    var originDow = isoDowFromDate(dateInput ? dateInput.value : '');
+    var excludeDate = form.getAttribute('data-repeat-exclude-date') || '';
+    var excludeTitle = normalizeTitleKey(form.getAttribute('data-repeat-exclude-title') || '');
+    var index = weekTitleIndex();
+
+    chips.forEach(function (cb) {
+      var dow = parseInt(cb.value, 10);
+      var label = cb.closest('.task-repeat-chip');
+      var skipOwn =
+        excludeDate !== '' &&
+        isoDowFromDate(excludeDate) === dow &&
+        excludeTitle !== '' &&
+        excludeTitle === titleKey;
+      var taken = false;
+      var reason = '';
+      if (originDow && dow === originDow) {
+        taken = true;
+        reason = 'Ya está en este día';
+      } else if (titleKey && dayHasTitle(index, dow, titleKey, skipOwn)) {
+        taken = true;
+        reason = 'Ya existe este día';
+      }
+      cb.disabled = taken;
+      if (taken) {
+        cb.checked = false;
+      }
+      if (label) {
+        label.classList.toggle('is-disabled', taken);
+        if (taken) {
+          label.setAttribute('title', reason);
+        } else {
+          label.removeAttribute('title');
+        }
+      }
+    });
+  }
+
+  function initRepeatDayGuards() {
+    document.querySelectorAll('form').forEach(function (form) {
+      if (!form.querySelector('input[name="repeat_days[]"]')) {
+        return;
+      }
+      var sync = function () {
+        syncRepeatChips(form);
+      };
+      var titleInput = form.querySelector('[name="title"]');
+      var dateInput = form.querySelector('[name="task_date"]');
+      if (titleInput) {
+        titleInput.addEventListener('input', sync);
+        titleInput.addEventListener('change', sync);
+      }
+      if (dateInput) {
+        dateInput.addEventListener('change', sync);
+      }
+      sync();
     });
   }
 
@@ -243,15 +458,29 @@
         var title = document.getElementById('weeklyTaskTitle');
         var date = document.getElementById('weeklyTaskDate');
         var notes = document.getElementById('weeklyTaskNotes');
+        var start = document.getElementById('weeklyTaskStart');
+        var minutes = document.getElementById('weeklyTaskMinutes');
         if (title) {
           title.value = btn.getAttribute('data-title') || '';
         }
         if (date) {
-          date.value = btn.getAttribute('data-date') || '';
+          date.value = btn.getAttribute('data-date') || date.value || '';
         }
         if (notes) {
           notes.value = btn.getAttribute('data-notes') || '';
         }
+        if (start) {
+          start.value = btn.getAttribute('data-start') || '';
+        }
+        if (minutes) {
+          minutes.value = btn.getAttribute('data-minutes') || '';
+        }
+        form.setAttribute('data-repeat-exclude-date', btn.getAttribute('data-date') || '');
+        form.setAttribute('data-repeat-exclude-title', normalizeTitleKey(btn.getAttribute('data-title') || ''));
+        form.querySelectorAll('input[name="repeat_days[]"]').forEach(function (cb) {
+          cb.checked = false;
+        });
+        syncRepeatChips(form);
         if (typeof dialog.showModal === 'function') {
           dialog.showModal();
         }
@@ -1398,6 +1627,112 @@
     });
   }
 
+  function initTaskDetails() {
+    var STORAGE_KEY = 'lqOpenTasks';
+
+    function readOpen() {
+      try {
+        var raw = sessionStorage.getItem(STORAGE_KEY);
+        var list = raw ? JSON.parse(raw) : [];
+        return Array.isArray(list) ? list : [];
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function writeOpen(list) {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch (err) {
+        /* sin persistencia */
+      }
+    }
+
+    function setExpanded(row, open) {
+      var detail = row.querySelector('[data-task-detail]');
+      if (!detail) {
+        return;
+      }
+      detail.hidden = !open;
+      row.querySelectorAll('[data-task-expand]').forEach(function (el) {
+        el.setAttribute('aria-expanded', open ? 'true' : 'false');
+        el.classList.toggle('is-open', open);
+      });
+    }
+
+    document.addEventListener('click', function (event) {
+      var trigger = event.target.closest('[data-task-expand]');
+      if (!trigger) {
+        return;
+      }
+      var row = trigger.closest('[data-task-id]');
+      if (!row) {
+        return;
+      }
+      var detail = row.querySelector('[data-task-detail]');
+      if (!detail) {
+        return;
+      }
+      var open = detail.hidden;
+      setExpanded(row, open);
+      var id = row.getAttribute('data-task-id');
+      var list = readOpen().filter(function (x) {
+        return x !== id;
+      });
+      if (open) {
+        list.push(id);
+      }
+      writeOpen(list);
+    });
+
+    readOpen().forEach(function (id) {
+      document.querySelectorAll('[data-task-id="' + id + '"]').forEach(function (row) {
+        setExpanded(row, true);
+      });
+    });
+
+    document.querySelectorAll('[data-step-toggle]').forEach(function (form) {
+      var checkbox = form.querySelector('input[type="checkbox"]');
+      if (!checkbox) {
+        return;
+      }
+      checkbox.addEventListener('change', function () {
+        fetch(form.action || appIndex(), {
+          method: 'POST',
+          body: new FormData(form),
+          headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin',
+        })
+          .then(function (res) {
+            if (!res.ok) {
+              throw new Error('step toggle failed');
+            }
+            return res.json();
+          })
+          .then(function (data) {
+            var li = form.closest('.task-step');
+            if (li) {
+              li.classList.toggle('is-done', !!data.is_done);
+            }
+            var row = form.closest('[data-task-id]');
+            if (row) {
+              var count = row.querySelector('[data-steps-count]');
+              if (count && typeof data.steps_done !== 'undefined') {
+                count.textContent = data.steps_done + '/' + data.steps_total;
+              }
+            }
+          })
+          .catch(function () {
+            checkbox.checked = !checkbox.checked;
+            showToast('No se pudo actualizar el paso.', true);
+          });
+      });
+    });
+  }
+
   function initRuleModals() {
     document.querySelectorAll('[data-edit-rule-category]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -1902,6 +2237,7 @@
     initHabitToggles();
     initTaskToggles();
     initWeeklyTaskModal();
+    initRepeatDayGuards();
     initCharts();
     initSidebar();
     initSortableTables();
@@ -1913,6 +2249,7 @@
     initHabitEditModal();
     initHabitDragReorder();
     initRuleModals();
+    initTaskDetails();
     initHabitTrackingFields();
     initScrollTop();
     void csrfToken;

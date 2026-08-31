@@ -175,6 +175,23 @@ try {
     } else {
         $messages[] = 'Tablas de Reglas propias ya existen.';
     }
+
+    $imgCol = $pdo->query("SHOW COLUMNS FROM weekly_tasks LIKE 'image_path'")->fetch();
+    $stepsTable = $pdo->query("SHOW TABLES LIKE 'weekly_task_steps'")->fetch();
+    $timeCol = $pdo->query("SHOW COLUMNS FROM weekly_tasks LIKE 'start_time'")->fetch();
+    $minsCol = $pdo->query("SHOW COLUMNS FROM weekly_tasks LIKE 'estimated_minutes'")->fetch();
+    if (!$imgCol || !$stepsTable || !$timeCol || !$minsCol) {
+        (new WeeklyPlanService())->ensureTable();
+        $messages[] = 'Tareas: imagen, checklist, horario de inicio y tiempo estimado.';
+    } else {
+        $messages[] = 'Imagen, checklist y horario de tareas ya migrados.';
+    }
+
+    $calCol = $pdo->query("SHOW COLUMNS FROM users LIKE 'calendar_embed_url'")->fetch();
+    if ($calCol) {
+        $pdo->exec('ALTER TABLE users DROP COLUMN calendar_embed_url');
+        $messages[] = 'Columna users.calendar_embed_url eliminada.';
+    }
 } catch (Throwable $e) {
     $error = $e->getMessage();
 }
