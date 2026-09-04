@@ -11,10 +11,16 @@ final class Auth
         }
 
         $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-        $lifetime = (int) app_config('session_lifetime', 28800);
+        $lifetime = (int) app_config('session_lifetime', 86400);
         if ($lifetime < 300) {
             $lifetime = 300;
         }
+        $idle = (int) app_config('session_idle', $lifetime);
+        if ($idle < 60) {
+            $idle = $lifetime;
+        }
+
+        ini_set('session.gc_maxlifetime', (string) max($lifetime, $idle));
 
         session_name($name);
         session_set_cookie_params([
@@ -33,7 +39,7 @@ final class Auth
             'use_only_cookies' => true,
         ]);
 
-        self::enforceIdleTimeout((int) app_config('session_idle', 7200));
+        self::enforceIdleTimeout($idle, $lifetime);
     }
 
     public static function attempt(string $email, string $password): bool
@@ -73,6 +79,7 @@ final class Auth
             'theme' => $user['theme'] ?: 'light',
         ];
         $_SESSION['_last_activity'] = time();
+        self::refreshSessionCookie((int) app_config('session_lifetime', 86400));
 
         $upd = Database::pdo()->prepare('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = :id');
         $upd->execute(['id' => $user['id']]);
@@ -129,7 +136,7 @@ final class Auth
         return in_array($theme, ['light', 'dark', 'system'], true) ? $theme : 'light';
     }
 
-    private static function enforceIdleTimeout(int $idleSeconds): void
+    private static function enforceIdleTimeout(int $idleSeconds, int $cookieLifetime = 86400): void
     {
         if ($idleSeconds < 60 || !isset($_SESSION['user'])) {
             return;
@@ -140,6 +147,27 @@ final class Auth
             return;
         }
         $_SESSION['_last_activity'] = time();
+        self::refreshSessionCookie($cookieLifetime > 0 ? $cookieLifetime : $idleSeconds);
+    }
+
+    /** Corre la expiración de la cookie 24 h (u otra vida) desde esta visita. */
+    private static function refreshSessionCookie(int $lifetime): void
+    {
+        if ($lifetime < 300 || session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+        $params = session_get_cookie_params();
+        $options = [
+            'expires' => time() + $lifetime,
+            'path' => $params['path'] !== '' ? $params['path'] : '/',
+            'secure' => (bool) ($params['secure'] ?? false),
+            'httponly' => (bool) ($params['httponly'] ?? true),
+            'samesite' => $params['samesite'] !== '' ? $params['samesite'] : 'Lax',
+        ];
+        if (($params['domain'] ?? '') !== '') {
+            $options['domain'] = $params['domain'];
+        }
+        setcookie(session_name(), session_id(), $options);
     }
 
     private static function allowLoginAttempt(): bool

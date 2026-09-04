@@ -178,8 +178,8 @@ Claro / oscuro desde el toggle de la barra o en Configuración.
 | `APP_URL` | URL base pública |
 | `DB_*` | Conexión MySQL |
 | `SESSION_NAME` | Nombre de la cookie |
-| `SESSION_LIFETIME` | Vida de la cookie (segundos) |
-| `SESSION_IDLE` | Timeout por inactividad (segundos) |
+| `SESSION_LIFETIME` | Vida de la cookie (86400 = 24 h; se renueva en cada visita) |
+| `SESSION_IDLE` | Cerrar sesión si no vuelve en este plazo (86400 = 24 h) |
 | `PATRIUM_URL` | Enlace opcional a finanzas externas |
 
 ---
