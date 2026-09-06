@@ -450,6 +450,22 @@ CREATE TABLE IF NOT EXISTS own_rules (
   CONSTRAINT fk_own_rules_category FOREIGN KEY (category_id) REFERENCES rule_categories(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS milestones (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  milestone_date DATE NOT NULL,
+  notes TEXT NULL,
+  is_done TINYINT(1) NOT NULL DEFAULT 0,
+  completed_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  KEY idx_milestones_user_date (user_id, milestone_date, deleted_at),
+  KEY idx_milestones_user_pending (user_id, is_done, milestone_date, deleted_at),
+  CONSTRAINT fk_milestones_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NULL,

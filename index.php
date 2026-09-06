@@ -85,6 +85,14 @@ $router->post('/rules/categories/{id}/delete', [$rules, 'destroyCategory']);
 $router->post('/rules/{id}', [$rules, 'updateRule']);
 $router->post('/rules/{id}/delete', [$rules, 'destroyRule']);
 
+$milestones = new MilestonesController();
+$router->get('/milestones', [$milestones, 'index']);
+$router->post('/milestones', [$milestones, 'store']);
+$router->post('/milestones/{id}', [$milestones, 'update']);
+$router->post('/milestones/{id}/complete', [$milestones, 'complete']);
+$router->post('/milestones/{id}/reopen', [$milestones, 'reopen']);
+$router->post('/milestones/{id}/delete', [$milestones, 'destroy']);
+
 $router->get('/archive', [new ArchiveController(), 'index']);
 
 $settings = new SettingsController();

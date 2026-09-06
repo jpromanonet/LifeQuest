@@ -192,6 +192,14 @@ try {
         $pdo->exec('ALTER TABLE users DROP COLUMN calendar_embed_url');
         $messages[] = 'Columna users.calendar_embed_url eliminada.';
     }
+
+    $milestonesExists = $pdo->query("SHOW TABLES LIKE 'milestones'")->fetch();
+    if (!$milestonesExists) {
+        (new MilestoneService())->ensureTable();
+        $messages[] = 'Tabla milestones creada (Hitos).';
+    } else {
+        $messages[] = 'Tabla milestones ya existe.';
+    }
 } catch (Throwable $e) {
     $error = $e->getMessage();
 }

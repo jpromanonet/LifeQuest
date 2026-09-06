@@ -2105,6 +2105,84 @@
     });
   }
 
+  function initMilestoneModal() {
+    var dialog = document.getElementById('milestoneModal');
+    var form = document.getElementById('milestoneForm');
+    var route = document.getElementById('milestoneRoute');
+    if (!dialog || !form || !route) {
+      return;
+    }
+    document.querySelectorAll('[data-open-modal="milestoneModal"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        route.value = '/milestones';
+        setFormRoute(form, '/milestones');
+        var titleEl = document.getElementById('milestoneModalTitle');
+        if (titleEl) {
+          titleEl.textContent = 'Nuevo hito';
+        }
+        var title = document.getElementById('milestoneTitle');
+        var date = document.getElementById('milestoneDate');
+        var notes = document.getElementById('milestoneNotes');
+        if (title) {
+          title.value = '';
+        }
+        if (date && !date.value) {
+          date.value = new Date().toISOString().slice(0, 10);
+        }
+        if (notes) {
+          notes.value = '';
+        }
+      });
+    });
+    document.querySelectorAll('[data-edit-milestone]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-id') || '0';
+        route.value = '/milestones/' + id;
+        setFormRoute(form, '/milestones/' + id);
+        var titleEl = document.getElementById('milestoneModalTitle');
+        if (titleEl) {
+          titleEl.textContent = 'Editar hito';
+        }
+        var title = document.getElementById('milestoneTitle');
+        var date = document.getElementById('milestoneDate');
+        var notes = document.getElementById('milestoneNotes');
+        if (title) {
+          title.value = btn.getAttribute('data-title') || '';
+        }
+        if (date) {
+          date.value = btn.getAttribute('data-date') || '';
+        }
+        if (notes) {
+          notes.value = btn.getAttribute('data-notes') || '';
+        }
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        }
+      });
+    });
+  }
+
+  function initMilestoneBlock() {
+    var dialog = document.getElementById('milestoneBlockModal');
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      return;
+    }
+    dialog.addEventListener('cancel', function (event) {
+      event.preventDefault();
+    });
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+    try {
+      dialog.showModal();
+    } catch (err) {
+      // ignore
+    }
+  }
+
   function initModals() {
     document.querySelectorAll('[data-open-modal]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -2249,6 +2327,8 @@
     initHabitEditModal();
     initHabitDragReorder();
     initRuleModals();
+    initMilestoneModal();
+    initMilestoneBlock();
     initTaskDetails();
     initHabitTrackingFields();
     initScrollTop();

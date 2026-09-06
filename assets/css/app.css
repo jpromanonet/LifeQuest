@@ -2790,6 +2790,168 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
   background: linear-gradient(180deg, var(--color-mint-soft) 0%, var(--color-surface) 36%);
 }
 
+/* —— Hitos —— */
+.milestone-section {
+  margin-bottom: 14px;
+}
+
+.milestone-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.milestone-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+.milestone-row.is-today {
+  background: color-mix(in srgb, var(--color-mint) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-mint) 40%, var(--color-border));
+}
+
+.milestone-row.is-done {
+  opacity: 0.72;
+}
+
+.milestone-row.is-done .milestone-title {
+  text-decoration: line-through;
+}
+
+.milestone-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.milestone-title {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.milestone-date {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+.milestone-notes {
+  margin: 6px 0 0;
+}
+
+.milestone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.milestone-block-modal {
+  width: min(440px, calc(100vw - 32px));
+  border: 0;
+  border-radius: 24px;
+  padding: 0;
+  background:
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--color-mint) 35%, transparent) 0%, transparent 42%),
+    linear-gradient(165deg, var(--color-mint-soft) 0%, var(--color-surface) 58%);
+  color: var(--color-text);
+  box-shadow: 0 24px 60px rgb(46 49 66 / 18%);
+}
+
+.milestone-block-modal::backdrop {
+  background: rgb(20 40 34 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+.milestone-block-form {
+  padding: 0;
+}
+
+.milestone-block-inner {
+  padding: 36px 28px 28px;
+  text-align: center;
+}
+
+.milestone-block-kicker {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-success);
+}
+
+.milestone-block-title {
+  margin: 0;
+  font-size: clamp(1.45rem, 3.5vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  color: color-mix(in srgb, var(--color-success) 55%, var(--color-text));
+}
+
+.milestone-block-date {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.milestone-block-notes {
+  margin: 14px auto 0;
+  max-width: 28ch;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--color-text);
+}
+
+.milestone-block-more {
+  margin: 14px 0 0;
+}
+
+.milestone-block-cta {
+  margin-top: 22px;
+  min-width: 12rem;
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.milestone-block-cta:hover {
+  background: color-mix(in srgb, var(--color-success) 88%, #000);
+  border-color: color-mix(in srgb, var(--color-success) 88%, #000);
+  color: #fff;
+}
+
+[data-theme="dark"] .milestone-block-modal {
+  background:
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--color-mint) 22%, transparent) 0%, transparent 42%),
+    linear-gradient(165deg, var(--color-mint-soft) 0%, var(--color-surface) 62%);
+}
+
+@media (max-width: 640px) {
+  .milestone-row {
+    flex-direction: column;
+  }
+
+  .milestone-actions {
+    width: 100%;
+  }
+}
+
 @media (max-width: 900px) {
   .today-layout {
     grid-template-columns: 1fr;

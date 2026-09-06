@@ -313,6 +313,7 @@ $hasWeekHours = $weekMinTotal > 0;
 </section>
 
 <script type="application/json" id="lq-week-titles"><?= json_encode($weekTitleIndex ?? [], JSON_UNESCAPED_UNICODE) ?></script>
+<?php include dirname(__DIR__) . '/partials/milestone_block.php'; ?>
 <dialog class="modal" id="weeklyTaskModal">
     <form method="post" id="weeklyTaskForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>

@@ -31,9 +31,9 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=60">
+    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=61">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-    <script src="<?= e(url('/assets/js/app.js')) ?>?v=60" defer></script>
+    <script src="<?= e(url('/assets/js/app.js')) ?>?v=61" defer></script>
 </head>
 <body class="app-body" data-app-index="<?= e(base_path() . '/index.php') ?>">
 <div class="app-shell">
@@ -67,8 +67,9 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
                 'goals' => ['Objetivos', '/goals', 'target'],
                 'weekly' => ['Plan semanal', '/weekly', 'week'],
                 'habits' => ['Hábitos', '/habits', 'check'],
-                'rules' => ['Reglas propias', '/rules', 'rules'],
+                'milestones' => ['Hitos', '/milestones', 'milestone'],
                 'horizon' => ['Horizontes', '/horizon', 'horizon'],
+                'rules' => ['Reglas propias', '/rules', 'rules'],
                 'metrics' => ['Métricas', '/metrics', 'chart'],
                 'reviews' => ['Revisiones', '/reviews', 'review'],
                 'archive' => ['Archivo', '/archive', 'archive'],

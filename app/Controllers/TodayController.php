@@ -108,6 +108,7 @@ final class TodayController
                 'minutes_total' => $weekMinTotal,
                 'minutes_done' => $weekMinDone,
             ],
+            'dueMilestones' => (new MilestoneService())->pendingDue($userId, $todayDate),
         ]);
     }
 
