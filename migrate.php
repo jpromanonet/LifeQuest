@@ -200,6 +200,20 @@ try {
     } else {
         $messages[] = 'Tabla milestones ya existe.';
     }
+
+    $habitsSvc = new HabitService();
+    $habitsSvc->ensureSchema();
+    $friendsSvc = new FriendService();
+    $friendsSvc->ensureTables();
+    $messages[] = 'Hábitos sistema (is_system / daily_qty) y tablas de amigos listas.';
+
+    $userRows = $pdo->query('SELECT id FROM users')->fetchAll();
+    $seeded = 0;
+    foreach ($userRows as $u) {
+        $habitsSvc->ensureSystemHabits((int) $u['id']);
+        $seeded++;
+    }
+    $messages[] = 'Hábitos imborrables asegurados en ' . $seeded . ' usuario(s).';
 } catch (Throwable $e) {
     $error = $e->getMessage();
 }

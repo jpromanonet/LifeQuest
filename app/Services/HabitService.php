@@ -5,6 +5,127 @@ declare(strict_types=1);
 final class HabitService
 {
     private const VALID_STATUSES = ['completed', 'partial', 'skipped_justified', 'missed'];
+    public const KEY_WATER = 'sys_water';
+    public const KEY_FRUIT = 'sys_fruit';
+    public const KEY_TALK_FRIEND = 'sys_talk_friend';
+    private const VALID_TRACKING = ['months', 'units', 'daily', 'daily_qty'];
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public static function systemCatalog(): array
+    {
+        return [
+            ['habit_key' => self::KEY_WATER, 'name' => 'Tomar mínimo 2 litros de agua', 'tracking_mode' => 'daily_qty', 'target_per_period' => 2000, 'unit' => 'ml', 'description' => 'Vaso 250 ml o botella 500 ml hasta 2000 ml.'],
+            ['habit_key' => self::KEY_FRUIT, 'name' => 'Comer 3 frutas', 'tracking_mode' => 'daily_qty', 'target_per_period' => 3, 'unit' => 'frutas', 'description' => 'Banana, mandarina u naranja · 3 por día.'],
+            ['habit_key' => 'sys_care', 'name' => 'Cuidado personal (cepillar dientes, lavar cara, desodorante, etc)', 'tracking_mode' => 'daily', 'description' => null],
+            ['habit_key' => 'sys_dress', 'name' => 'Vestirse', 'tracking_mode' => 'daily', 'description' => null],
+            ['habit_key' => 'sys_breakfast', 'name' => 'Desayuno', 'tracking_mode' => 'daily', 'description' => null],
+            ['habit_key' => 'sys_lunch', 'name' => 'Almuerzo', 'tracking_mode' => 'daily', 'description' => null],
+            ['habit_key' => 'sys_snack', 'name' => 'Merienda', 'tracking_mode' => 'daily', 'description' => null],
+            ['habit_key' => 'sys_dinner', 'name' => 'Cena', 'tracking_mode' => 'daily', 'description' => null],
+            ['habit_key' => 'sys_go_out', 'name' => 'Salir de casa (ir a hacer mandados o dar una vuelta al parque pero salir)', 'tracking_mode' => 'daily', 'description' => null],
+            ['habit_key' => self::KEY_TALK_FRIEND, 'name' => 'Hablar con algún amigo/a', 'tracking_mode' => 'daily', 'description' => 'La app sugiere con quién, sin repetir.'],
+        ];
+    }
+
+    public function ensureSchema(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $pdo = Database::pdo();
+        $sysCol = $pdo->query("SHOW COLUMNS FROM habits LIKE 'is_system'")->fetch();
+        if (!$sysCol) {
+            $pdo->exec('ALTER TABLE habits ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0 AFTER notes');
+        }
+        $mode = $pdo->query("SHOW COLUMNS FROM habits LIKE 'tracking_mode'")->fetch();
+        $type = (string) ($mode['Type'] ?? '');
+        if ($type !== '' && !str_contains($type, 'daily_qty')) {
+            $pdo->exec(
+                "ALTER TABLE habits
+                 MODIFY COLUMN tracking_mode ENUM('months','units','daily','daily_qty') NOT NULL DEFAULT 'months'"
+            );
+        }
+        $done = true;
+    }
+
+    public function ensureSystemHabits(int $userId): void
+    {
+        $this->ensureSchema();
+        $pdo = Database::pdo();
+        $find = $pdo->prepare(
+            'SELECT id, deleted_at, archived_at, display_number
+             FROM habits WHERE user_id = :uid AND habit_key = :k LIMIT 1'
+        );
+        $maxStmt = $pdo->prepare(
+            'SELECT COALESCE(MAX(display_number), 0) FROM habits
+             WHERE user_id = :uid AND active = 1 AND deleted_at IS NULL AND archived_at IS NULL'
+        );
+        $maxStmt->execute(['uid' => $userId]);
+        $next = (int) $maxStmt->fetchColumn();
+
+        foreach (self::systemCatalog() as $spec) {
+            $find->execute(['uid' => $userId, 'k' => $spec['habit_key']]);
+            $existing = $find->fetch();
+            $tracking = (string) $spec['tracking_mode'];
+            $target = (int) ($spec['target_per_period'] ?? 1);
+            $unit = (string) ($spec['unit'] ?? 'vez');
+            if ($existing) {
+                $hid = (int) $existing['id'];
+                $pdo->prepare(
+                    'UPDATE habits
+                     SET name = :name, description = :description, is_system = 1,
+                         tracking_mode = :mode, target_per_period = :target, unit = :unit,
+                         frequency_type = \'daily\', active = 1,
+                         start_date = NULL, end_date = NULL,
+                         deleted_at = NULL, archived_at = NULL
+                     WHERE id = :id'
+                )->execute([
+                    'name' => $spec['name'],
+                    'description' => $spec['description'],
+                    'mode' => $tracking,
+                    'target' => $target,
+                    'unit' => $unit,
+                    'id' => $hid,
+                ]);
+                $this->replaceScheduleDays($hid, []);
+                if ($existing['deleted_at'] || $existing['archived_at'] || $existing['display_number'] === null) {
+                    $next++;
+                    $pdo->prepare('UPDATE habits SET display_number = :n WHERE id = :id')
+                        ->execute(['n' => $next, 'id' => $hid]);
+                }
+            } else {
+                $next++;
+                $pdo->prepare(
+                    'INSERT INTO habits (
+                        user_id, habit_key, display_number, name, description,
+                        frequency_type, tracking_mode, target_per_period, unit, is_system, active
+                     ) VALUES (
+                        :uid, :k, :n, :name, :description,
+                        \'daily\', :mode, :target, :unit, 1, 1
+                     )'
+                )->execute([
+                    'uid' => $userId,
+                    'k' => $spec['habit_key'],
+                    'n' => $next,
+                    'name' => $spec['name'],
+                    'description' => $spec['description'],
+                    'mode' => $tracking,
+                    'target' => $target,
+                    'unit' => $unit,
+                ]);
+            }
+        }
+        $this->renumberActive($userId);
+    }
+
+    public function isSystem(array $habit): bool
+    {
+        return (int) ($habit['is_system'] ?? 0) === 1
+            || in_array((string) ($habit['habit_key'] ?? ''), array_column(self::systemCatalog(), 'habit_key'), true);
+    }
 
     /** @return list<array<string, mixed>> */
     public function listActive(int $userId): array
@@ -95,7 +216,7 @@ final class HabitService
                  )'
             );
             $tracking = (string) ($data['tracking_mode'] ?? 'months');
-            if (!in_array($tracking, ['months', 'units', 'daily'], true)) {
+            if (!in_array($tracking, self::VALID_TRACKING, true)) {
                 $tracking = 'months';
             }
             $stmt->execute([
@@ -142,6 +263,9 @@ final class HabitService
         $existing = $this->find($userId, $id);
         if ($existing === null) {
             throw new RuntimeException('Habit not found');
+        }
+        if ($this->isSystem($existing)) {
+            throw new RuntimeException('Los hábitos del sistema no se pueden editar.');
         }
 
         $pdo = Database::pdo();
@@ -201,6 +325,10 @@ final class HabitService
 
     public function archive(int $userId, int $id): void
     {
+        $existing = $this->find($userId, $id);
+        if ($existing !== null && $this->isSystem($existing)) {
+            throw new RuntimeException('Este hábito del sistema no se puede archivar.');
+        }
         $pdo = Database::pdo();
         $pdo->beginTransaction();
         try {
@@ -225,6 +353,10 @@ final class HabitService
 
     public function delete(int $userId, int $id): void
     {
+        $existing = $this->find($userId, $id);
+        if ($existing !== null && $this->isSystem($existing)) {
+            throw new RuntimeException('Este hábito del sistema no se puede eliminar.');
+        }
         $pdo = Database::pdo();
         $pdo->beginTransaction();
         try {
@@ -357,6 +489,217 @@ final class HabitService
             $inc = $quantity !== null && $quantity > 0 ? (float) $quantity : 1.0;
             $this->bumpUnits($userId, $habitId, $inc);
         }
+    }
+
+    /**
+     * Suma o resta ml del día (agua). Completa al llegar a la meta.
+     *
+     * @return array{quantity:float,target:float,status:string,done:bool}
+     */
+    public function addDailyQuantity(int $userId, int $habitId, string $date, float $delta): array
+    {
+        $habit = $this->find($userId, $habitId);
+        if ($habit === null) {
+            throw new RuntimeException('Habit not found');
+        }
+        $target = max(1.0, (float) ($habit['target_per_period'] ?? 2000));
+        $logs = $this->logsForDate($userId, $date);
+        $current = (float) (($logs[$habitId]['quantity'] ?? 0) ?: 0);
+        $next = max(0.0, $current + $delta);
+        $done = $next + 0.0001 >= $target;
+        $status = $done ? 'completed' : 'missed';
+        $this->log($userId, $habitId, $date, $status, $next, $logs[$habitId]['note'] ?? null);
+        return [
+            'quantity' => $next,
+            'target' => $target,
+            'status' => $status,
+            'done' => $done,
+        ];
+    }
+
+    /**
+     * Resumen del hábito de agua para Métricas.
+     *
+     * @return array{
+     *   today_ml:float,target_ml:float,today_done:bool,
+     *   week_days_done:int,week_days:int,month_days_done:int,month_days:int,
+     *   year_days_done:int,year_days:int,avg_week_ml:float,streak:int
+     * }
+     */
+    public function waterStats(int $userId, ?DateTimeImmutable $today = null): array
+    {
+        $s = $this->dailyQtyStats($userId, self::KEY_WATER, 2000.0, $today);
+        return [
+            'today_ml' => $s['today_qty'],
+            'target_ml' => $s['target_qty'],
+            'today_done' => $s['today_done'],
+            'week_days_done' => $s['week_days_done'],
+            'week_days' => $s['week_days'],
+            'month_days_done' => $s['month_days_done'],
+            'month_days' => $s['month_days'],
+            'year_days_done' => $s['year_days_done'],
+            'year_days' => $s['year_days'],
+            'avg_week_ml' => $s['avg_week_qty'],
+            'streak' => $s['streak'],
+        ];
+    }
+
+    /**
+     * Resumen del hábito de frutas para Métricas.
+     *
+     * @return array{
+     *   today:float,target:float,today_done:bool,
+     *   week_days_done:int,week_days:int,month_days_done:int,month_days:int,
+     *   year_days_done:int,year_days:int,avg_week:float,streak:int
+     * }
+     */
+    public function fruitStats(int $userId, ?DateTimeImmutable $today = null): array
+    {
+        $s = $this->dailyQtyStats($userId, self::KEY_FRUIT, 3.0, $today);
+        return [
+            'today' => $s['today_qty'],
+            'target' => $s['target_qty'],
+            'today_done' => $s['today_done'],
+            'week_days_done' => $s['week_days_done'],
+            'week_days' => $s['week_days'],
+            'month_days_done' => $s['month_days_done'],
+            'month_days' => $s['month_days'],
+            'year_days_done' => $s['year_days_done'],
+            'year_days' => $s['year_days'],
+            'avg_week' => $s['avg_week_qty'],
+            'streak' => $s['streak'],
+        ];
+    }
+
+    /**
+     * @return array{
+     *   today_qty:float,target_qty:float,today_done:bool,
+     *   week_days_done:int,week_days:int,month_days_done:int,month_days:int,
+     *   year_days_done:int,year_days:int,avg_week_qty:float,streak:int
+     * }
+     */
+    private function dailyQtyStats(int $userId, string $habitKey, float $defaultTarget, ?DateTimeImmutable $today = null): array
+    {
+        $today = $today ?? now_local();
+        $this->ensureSystemHabits($userId);
+        $habit = null;
+        foreach ($this->listActive($userId) as $row) {
+            if (($row['habit_key'] ?? '') === $habitKey) {
+                $habit = $row;
+                break;
+            }
+        }
+        $target = max(1.0, (float) ($habit['target_per_period'] ?? $defaultTarget));
+        $daysInMonth = (int) $today->format('t');
+        $empty = [
+            'today_qty' => 0.0,
+            'target_qty' => $target,
+            'today_done' => false,
+            'week_days_done' => 0,
+            'week_days' => 7,
+            'month_days_done' => 0,
+            'month_days' => $daysInMonth,
+            'year_days_done' => 0,
+            'year_days' => ((int) $today->format('z')) + 1,
+            'avg_week_qty' => 0.0,
+            'streak' => 0,
+        ];
+        if ($habit === null) {
+            return $empty;
+        }
+
+        $habitId = (int) $habit['id'];
+        $todayYmd = $today->format('Y-m-d');
+        $weekStart = $today->modify('monday this week')->format('Y-m-d');
+        $monthStart = $today->format('Y-m-01');
+        $monthEnd = $today->format('Y-m-t');
+        $yearStart = $today->format('Y-01-01');
+
+        $stmt = Database::pdo()->prepare(
+            'SELECT log_date, quantity, status
+             FROM habit_logs
+             WHERE habit_id = :hid AND log_date BETWEEN :from AND :to
+             ORDER BY log_date DESC'
+        );
+        $stmt->execute(['hid' => $habitId, 'from' => $yearStart, 'to' => $todayYmd]);
+        $byDate = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $byDate[(string) $row['log_date']] = $row;
+        }
+
+        $metGoal = static function (array $byDate, string $d, float $target): bool {
+            $qty = (float) (($byDate[$d]['quantity'] ?? 0) ?: 0);
+            return $qty + 0.0001 >= $target;
+        };
+
+        $todayQty = (float) (($byDate[$todayYmd]['quantity'] ?? 0) ?: 0);
+        $weekDone = 0;
+        $weekSum = 0.0;
+        $weekElapsed = 0;
+        $cursor = new DateTimeImmutable($weekStart);
+        for ($i = 0; $i < 7; $i++) {
+            $d = $cursor->modify("+{$i} day")->format('Y-m-d');
+            if ($d > $todayYmd) {
+                break;
+            }
+            $weekElapsed++;
+            $qty = (float) (($byDate[$d]['quantity'] ?? 0) ?: 0);
+            $weekSum += $qty;
+            if ($metGoal($byDate, $d, $target)) {
+                $weekDone++;
+            }
+        }
+
+        $monthDone = 0;
+        $mCursor = new DateTimeImmutable($monthStart);
+        $mEnd = new DateTimeImmutable($monthEnd);
+        while ($mCursor <= $mEnd) {
+            $d = $mCursor->format('Y-m-d');
+            if ($d <= $todayYmd && $metGoal($byDate, $d, $target)) {
+                $monthDone++;
+            }
+            $mCursor = $mCursor->modify('+1 day');
+        }
+
+        $yearDone = 0;
+        $yearDays = ((int) $today->format('z')) + 1;
+        foreach ($byDate as $d => $_row) {
+            if ($metGoal($byDate, (string) $d, $target)) {
+                $yearDone++;
+            }
+        }
+
+        $streak = 0;
+        $probe = $today;
+        while (true) {
+            $d = $probe->format('Y-m-d');
+            if ($d < $yearStart) {
+                break;
+            }
+            if (!$metGoal($byDate, $d, $target)) {
+                if ($d === $todayYmd) {
+                    $probe = $probe->modify('-1 day');
+                    continue;
+                }
+                break;
+            }
+            $streak++;
+            $probe = $probe->modify('-1 day');
+        }
+
+        return [
+            'today_qty' => $todayQty,
+            'target_qty' => $target,
+            'today_done' => $metGoal($byDate, $todayYmd, $target),
+            'week_days_done' => $weekDone,
+            'week_days' => 7,
+            'month_days_done' => $monthDone,
+            'month_days' => $daysInMonth,
+            'year_days_done' => $yearDone,
+            'year_days' => $yearDays,
+            'avg_week_qty' => $weekElapsed > 0 ? round($weekSum / $weekElapsed, 1) : 0.0,
+            'streak' => $streak,
+        ];
     }
 
     /** @return array{months: array<int,bool>, checked: int, percent: float, year: int} */
@@ -539,6 +882,7 @@ final class HabitService
             $log = $logs[(int) $habit['id']] ?? null;
             $habit['log'] = $log;
             $habit['log_status'] = $log['status'] ?? null;
+            $habit['log_quantity'] = isset($log['quantity']) ? (float) $log['quantity'] : 0.0;
             $result[] = $habit;
         }
         return $result;
@@ -601,6 +945,9 @@ final class HabitService
     /** @param array<string, mixed> $habit */
     public function isScheduledOn(array $habit, DateTimeInterface $date): bool
     {
+        if ($this->isSystem($habit)) {
+            return true;
+        }
         $ymd = $date->format('Y-m-d');
         if (!empty($habit['start_date']) && $ymd < $habit['start_date']) {
             return false;
@@ -641,6 +988,7 @@ final class HabitService
         $row['current_value'] = isset($row['current_value']) ? (float) $row['current_value'] : 0.0;
         $row['progress_percent'] = isset($row['progress_percent']) ? (float) $row['progress_percent'] : 0.0;
         $row['target_per_period'] = isset($row['target_per_period']) ? (float) $row['target_per_period'] : 1.0;
+        $row['is_system'] = (int) ($row['is_system'] ?? 0);
         return $row;
     }
 

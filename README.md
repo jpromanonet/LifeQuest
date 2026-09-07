@@ -1,67 +1,105 @@
 # LifeQuest
 
-Dirección, constancia y progreso. Aplicación personal de **objetivos anuales**, **horizontes** (largo plazo), **hábitos**, **plan semanal** y **métricas**.
+**Dirección, constancia y progreso.**
 
-Versión 1: PHP + MySQL, sin framework de frontend. Pensada para desplegarse en un Home Lab / Apache (o IIS con PHP) copiando la carpeta.
+LifeQuest es una app personal para planear el año, sostener hábitos diarios y ver el avance en un solo lugar. Está pensada para uso individual (Home Lab / servidor propio): PHP + MySQL, sin frameworks de frontend ni dependencias de Composer.
+
+<p align="center">
+  <img src="docs/screenshots/login.png" alt="Login de LifeQuest" width="720">
+</p>
 
 ---
 
-## Qué incluye (v1)
+## Objetivo del proyecto
 
-| Pantalla | Para qué sirve |
-|----------|----------------|
-| **Hoy** | Hábitos del día, tareas del día, progreso del año |
-| **Objetivos** | Plan anual por área (meses / unidades / sí-no) |
-| **Libros** | Biblioteca del año y meta de lectura |
-| **Hábitos** | Alta, edición y seguimiento (meses, unidades o diario) |
-| **Plan semanal** | Tareas por día, filtro por día, carga diaria |
-| **Métricas** | Completitud, gráficos y distribución |
-| **Horizontes** | Objetivos mayores de largo plazo (binarios) |
-| **Archivo** | Solo objetivos históricos (sin horizontes) |
-| **Configuración** | Tema, contraseña, áreas anuales y de horizonte |
+LifeQuest responde a una pregunta simple: *¿estoy haciendo hoy lo que dije que iba a hacer este año?*
+
+- **Objetivos anuales** por área (meses, unidades o sí/no), más **horizontes** de largo plazo.
+- **Hábitos diarios** (incluyendo hábitos de sistema fijos: agua, frutas, rutinas, hablar con amigos/as).
+- **Plan semanal** y pantalla **Hoy** para ejecutar el día.
+- **Hitos**, **amigos/as** (rotación de charlas) y **métricas** para cerrar el círculo.
+
+No es una red social ni un SaaS multi-tenant: es un planificador serio para una sola persona, desplegable copiando una carpeta.
+
+<p align="center">
+  <img src="docs/screenshots/hoy.png" alt="Pantalla Hoy" width="720">
+</p>
+
+---
+
+## Pantallas
+
+| Pantalla | Para qué |
+|----------|----------|
+| **Hoy** | Hábitos del día, agua/frutas, tareas, hitos pendientes |
+| **Objetivos** | Plan anual por área |
+| **Plan semanal** | Tareas por día de la semana |
+| **Hábitos** | Lista completa (sistema + propios) |
+| **Hitos** | Fechas importantes; pueden bloquear Hoy si vencen |
+| **Amigos/as** | Lista cercana + sugerencia diaria de con quién hablar |
+| **Horizontes** | Objetivos de largo plazo (sí/no) |
+| **Reglas propias** | Principios / reglas personales |
+| **Métricas** | Agua, frutas, plan semanal, hitos, interacción con amigos/as |
+| **Revisiones / Archivo / Configuración** | Cierre, histórico y preferencias |
+
+<p align="center">
+  <img src="docs/screenshots/habitos.png" alt="Pantalla Hábitos" width="720">
+</p>
+
+---
+
+## Hábitos de sistema (siempre en cualquier deploy)
+
+En cada instalación / login / migrate, LifeQuest asegura estos hábitos con `is_system = 1`:
+
+| Clave | Nombre | Medición |
+|-------|--------|----------|
+| `sys_water` | Tomar mínimo 2 litros de agua | Cantidad diaria (vasos/botellas → 2000 ml) |
+| `sys_fruit` | Comer 3 frutas | Cantidad diaria (banana / mandarina / naranja → 3) |
+| `sys_care` | Cuidado personal | Check diario |
+| `sys_dress` | Vestirse | Check diario |
+| `sys_breakfast` / `sys_lunch` / `sys_snack` / `sys_dinner` | Comidas | Check diario |
+| `sys_go_out` | Salir de casa | Check diario |
+| `sys_talk_friend` | Hablar con algún amigo/a | Check diario + rotación fija del día |
+
+**No se pueden editar, archivar ni eliminar** desde la UI. Son diarios (lunes a lunes). El catálogo vive en código (`HabitService::systemCatalog`) y está documentado en `sql/schema.sql`.
+
+---
+
+## Esquema SQL (un solo archivo)
+
+Todo el DDL está en:
+
+```
+sql/schema.sql
+```
+
+No hay otros `.sql` de migraciones ni dumps versionados.  
+- **Instalación nueva:** `install.php` aplica `sql/schema.sql` y siembra datos de ejemplo + hábitos de sistema.  
+- **Instalación existente:** `migrate.php` hace ALTERs idempotentes en PHP y vuelve a asegurar hábitos de sistema / tablas nuevas.
 
 ---
 
 ## Requisitos
 
-- PHP **8.1+** (recomendado 8.2/8.3) con extensiones: `pdo_mysql`, `mbstring`, `json`, `session`
+- PHP **8.1+** (`pdo_mysql`, `mbstring`, `json`, `session`)
 - MySQL **8+** (o MariaDB compatible)
-- Servidor web que sirva la carpeta (Apache, nginx, IIS)
-- No hace falta Composer ni Node para correr la app
+- Apache / nginx / IIS sirviendo la carpeta
+- Sin Composer ni Node para correr la app
 
 ---
 
-## Seguridad del repositorio
-
-Antes de pushear o compartir el repo, verificar:
-
-| Archivo | Estado esperado |
-|---------|-----------------|
-| `.env` | **No** está en el repo (está en `.gitignore`). Solo existe en cada máquina/servidor. |
-| `.env.example` | Plantilla sin contraseñas reales (`DB_PASS` vacío). |
-| `sql/schema.sql` | Solo DDL (tablas). **Sin** datos de usuarios ni hashes. |
-| `config/*.php` | Lee valores desde `.env`; no hardcodea secretos. |
-| Semilla demo | `demo@lifequest.local` / `lifequest-demo` (solo instalación de ejemplo). |
-
-Nunca commitear: `.env`, dumps SQL con datos reales, scripts `_diag*` / `_reset*`, ni capturas con credenciales.
-
----
-
-## Deploy (instalación nueva)
+## Instalación (deploy nuevo)
 
 ### 1. Copiar el proyecto
 
-Copiá la carpeta del repo al document root (ej. `W:\lifequest` → `http://servidor/lifequest`).
+Copiá el repo al document root (ej. `W:\lifequest` → `http://servidor/lifequest`).
 
-No hace falta `vendor/`: la app no depende de Composer.
-
-### 2. Configurar entorno
+### 2. Configurar `.env`
 
 ```bash
 cp .env.example .env
 ```
-
-Editá `.env`:
 
 ```env
 APP_URL=http://TU-SERVIDOR/lifequest
@@ -70,43 +108,32 @@ DB_PORT=3306
 DB_NAME=lifequest
 DB_USER=root
 DB_PASS=tu_password_mysql
+SESSION_LIFETIME=86400
+SESSION_IDLE=86400
 ```
 
-- `APP_URL` **sin** barra final.
-- En producción: `APP_DEBUG=false` y `APP_ENV=production`.
+`APP_URL` sin barra final. En producción: `APP_DEBUG=false`.
 
-### 3. Instalar base y datos de ejemplo
+### 3. Instalar
 
-Abrí en el navegador:
+Abrí:
 
-`http://TU-SERVIDOR/lifequest/install.php`
+`http://TU-SERVIDOR/lifequest/install.php` → **Instalar ahora**
 
-Pulsá **Instalar ahora**. Eso:
+Eso crea la base, aplica **`sql/schema.sql`**, siembra el demo y crea los hábitos de sistema.
 
-1. Crea la base si no existe  
-2. Aplica `sql/schema.sql`  
-3. Siembra áreas, objetivos y hábitos de ejemplo  
+Usuario demo:
 
-Usuario demo (solo tras instalar):
+- Email: `demo@lifequest.local`
+- Contraseña: `lifequest-demo`
 
-- **Email:** `demo@lifequest.local`  
-- **Contraseña:** `lifequest-demo`  
+Cambiá la contraseña en **Configuración** antes de usarlo en serio. Después podés borrar o renombrar `install.php`.
 
-Cambiá la contraseña en **Configuración** antes de usarlo en serio.
+### 4. Actualizar una instalación existente
 
-### 4. (Opcional) Quitar el instalador
-
-Después de instalar, borrá o renombrá `install.php` en el servidor para que nadie lo vuelva a ejecutar.
-
-### 5. Actualizar una instalación ya existente
-
-Si ya tenés datos y solo cambió el esquema:
-
-`http://TU-SERVIDOR/lifequest/migrate.php`
-
-Luego copiá los archivos de código nuevos (PHP/CSS/JS/vistas) sobre la instalación. **No** pises el `.env` del servidor.
-
-Ejemplo en Windows (robocopy, excluyendo `.env`):
+1. Copiá el código nuevo **sin pisar** el `.env` del servidor.  
+2. Abrí `http://TU-SERVIDOR/lifequest/migrate.php`.  
+3. Hard refresh (Ctrl+F5) si CSS/JS no se ven actualizados (`?v=` en assets).
 
 ```bat
 robocopy C:\ruta\LifeQuest W:\lifequest /E /XD .git /XF .env
@@ -114,96 +141,106 @@ robocopy C:\ruta\LifeQuest W:\lifequest /E /XD .git /XF .env
 
 ---
 
+## Guía de uso
+
+### Hoy
+
+1. Entrá a **Hoy**: ahí están los hábitos del día y las tareas.  
+2. **Agua:** sumá / restá 250 o 500 ml hasta 2000.  
+3. **Frutas:** sumá banana, mandarina o naranja hasta 3; −1 para corregir.  
+4. **Hablar con amigo/a:** la app sugiere una persona; al tildar queda **fija todo el día**.  
+5. Completá tareas del plan semanal desde Hoy o desde Plan semanal.
+
+### Objetivos
+
+1. Elegí el año.  
+2. **+ Nuevo objetivo** por área.  
+3. Medición: **meses** (12 tildes), **unidades** (meta numérica) o **sí/no**.  
+4. Edición siempre en modal.
+
+### Horizontes
+
+Objetivos de largo plazo, separados del plan anual, con áreas propias. Solo logrado / en camino.
+
+### Hábitos propios
+
+Además de los de sistema podés crear hábitos por meses, unidades o diario. Los de sistema muestran badge **Sistema** y no abren edición.
+
+### Plan semanal
+
+Tareas por día, con horario y estimación. Podés copiar una tarea a otros días de la misma semana.
+
+### Hitos
+
+Cargá fechas importantes. Si un hito vence o es hoy y no está hecho, puede bloquear **Hoy** hasta marcarlo.
+
+### Amigos/as
+
+1. Agregá nombres cercanos.  
+2. El hábito de hablar rota sin repetir.  
+3. Contadores: cuántos hay, charlas de la semana/mes, sin hablar aún.
+
+### Métricas
+
+<p align="center">
+  <img src="docs/screenshots/metricas.png" alt="Pantalla Métricas" width="720">
+</p>
+
+Vista consolidada del año: completitud de áreas, plan semanal, hitos, **agua**, **frutas** e **interacción con amigos/as**.
+
+### Tema
+
+Claro / oscuro desde la barra o Configuración.
+
+---
+
 ## URLs
 
-Las rutas van por query string (sin `mod_rewrite`):
+Sin `mod_rewrite`; las rutas van por query string:
 
 ```
 http://TU-SERVIDOR/lifequest/index.php?r=/today
 http://TU-SERVIDOR/lifequest/index.php?r=/login
 ```
 
-Atajos útiles: `?r=/goals`, `?r=/habits`, `?r=/weekly`, `?r=/horizon`, `?r=/archive`, `?r=/settings`.
+Atajos: `?r=/goals`, `/habits`, `/weekly`, `/milestones`, `/friends`, `/horizon`, `/metrics`, `/settings`.
 
 ---
 
-## Guía de uso rápida
+## Seguridad del repositorio
 
-### Objetivos (año)
+| Archivo | Esperado |
+|---------|----------|
+| `.env` | **No** en el repo (`.gitignore`) |
+| `.env.example` | Plantilla sin secretos |
+| `sql/schema.sql` | Solo DDL; **único** SQL versionado |
+| Semilla demo | Solo para instalación de ejemplo |
 
-1. Elegí el año en la barra superior.  
-2. Creá objetivos por área con **+ Nuevo objetivo**.  
-3. Medición:
-   - **Meses:** tildá los 12 meses del año.  
-   - **Unidades:** cargá avance vs meta.  
-   - **Sí / no:** marcar hecho o pendiente.  
-4. Edición siempre en modal (sin panel lateral).  
-5. Eliminar un objetivo te deja en el **mismo año** que estabas viendo.
-
-### Horizontes
-
-Objetivos de largo plazo, separados de los anuales, con áreas propias (Laborales, Salud, Financieros, etc.). Solo sí/no (logrado / en camino).
-
-### Hábitos
-
-- **Por meses:** marcar meses cumplidos.  
-- **Por unidades:** sumar progreso (libros, km, etc.).  
-- **Diario:** checkbox del día (también en Hoy).  
-
-Edición en modal.
-
-### Plan semanal / Hoy
-
-- En **Plan semanal** filtrás por día o ves toda la semana.  
-- En **Hoy**, hábitos y tareas del día comparten altura fija (~9 filas) con scroll si hay más.  
-- Cuando el día está al 100%, se muestra *Carga diaria 100% ejecutada*.
-
-### Archivo
-
-Solo objetivos anuales completados/archivados o de años anteriores. **No** mezcla horizontes.
-
-### Tema
-
-Claro / oscuro desde el toggle de la barra o en Configuración.
+No commitear dumps con datos reales ni scripts de diagnóstico.
 
 ---
 
-## Variables de entorno
-
-| Variable | Descripción |
-|----------|-------------|
-| `APP_NAME` | Nombre visible |
-| `APP_ENV` | `local` / `production` |
-| `APP_DEBUG` | Errores visibles (`true`/`false`) |
-| `APP_URL` | URL base pública |
-| `DB_*` | Conexión MySQL |
-| `SESSION_NAME` | Nombre de la cookie |
-| `SESSION_LIFETIME` | Vida de la cookie (86400 = 24 h; se renueva en cada visita) |
-| `SESSION_IDLE` | Cerrar sesión si no vuelve en este plazo (86400 = 24 h) |
-| `PATRIUM_URL` | Enlace opcional a finanzas externas |
-
----
-
-## Estructura del proyecto
+## Estructura
 
 ```
 LifeQuest/
-├── app/               # Controllers, Services, Views, Auth, Router
-├── assets/            # CSS y JS
-├── config/            # app.php, database.php, env.php (leen .env)
-├── sql/schema.sql     # Esquema limpio (sin datos)
-├── index.php          # Entrada de la app
-├── install.php        # Instalador (una vez)
-├── migrate.php        # Migraciones de esquema
-├── .env.example       # Plantilla
+├── app/                 # Controllers, Services, Views, Auth, Router
+├── assets/              # CSS y JS
+├── config/              # app.php, database.php, env.php
+├── docs/screenshots/    # Capturas para esta guía
+├── sql/schema.sql       # Único esquema SQL
+├── index.php
+├── install.php
+├── migrate.php
+├── .env.example
 └── README.md
 ```
 
 ---
 
-## Notas de v1
+## Notas
 
-- Una sola cuenta de usuario por instalación (uso personal).  
+- Una cuenta por instalación (uso personal).  
 - Zona horaria por defecto: `America/Argentina/Buenos_Aires`.  
-- El semillero (`SeedManifest`) genera datos inventados relativos al año en curso; no son datos reales del repo.  
-- Tras el deploy, si el CSS/JS no se actualiza: hard refresh (Ctrl+F5); los assets llevan `?v=` de caché.
+- Sesión: cookie renovable 24 h (`SESSION_LIFETIME` / `SESSION_IDLE`).  
+- El semillero demo inventa datos del año en curso; no son datos reales del dueño del repo.

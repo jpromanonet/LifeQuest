@@ -30,6 +30,67 @@ $weeklyPlan = $overview['weekly_plan'] ?? [
     'tasks_total' => 0,
 ];
 $wpCurrent = $weeklyPlan['current'] ?? [];
+$ms = $overview['milestones'] ?? ['upcoming' => 0, 'pending_due' => 0, 'done' => 0, 'total' => 0];
+$msTotal = max(0, (int) ($ms['total'] ?? 0));
+$msDone = (int) ($ms['done'] ?? 0);
+$msPct = $msTotal > 0 ? round(($msDone / $msTotal) * 100) : 0;
+$water = $overview['water'] ?? [
+    'today_ml' => 0,
+    'target_ml' => 2000,
+    'today_done' => false,
+    'week_days_done' => 0,
+    'week_days' => 0,
+    'month_days_done' => 0,
+    'month_days' => 0,
+    'year_days_done' => 0,
+    'year_days' => 0,
+    'avg_week_ml' => 0,
+    'streak' => 0,
+];
+$waterTodayPct = max(0, min(100, round(((float) ($water['today_ml'] ?? 0) / max(1.0, (float) ($water['target_ml'] ?? 2000))) * 100)));
+$waterWeekPct = ((int) ($water['week_days'] ?? 0)) > 0
+    ? round(((int) ($water['week_days_done'] ?? 0) / max(1, (int) $water['week_days'])) * 100)
+    : 0;
+$waterMonthPct = ((int) ($water['month_days'] ?? 0)) > 0
+    ? round(((int) ($water['month_days_done'] ?? 0) / max(1, (int) $water['month_days'])) * 100)
+    : 0;
+$friends = $overview['friends'] ?? [
+    'total' => 0,
+    'talked_week' => 0,
+    'talks_week' => 0,
+    'talked_month' => 0,
+    'talks_month' => 0,
+    'talked_year' => 0,
+    'talks_year' => 0,
+    'never' => 0,
+    'coverage_month' => 0,
+    'days_week' => 0,
+    'streak' => 0,
+    'last_talk_date' => null,
+    'suggested' => null,
+];
+$friendsTotal = max(0, (int) ($friends['total'] ?? 0));
+$friendsCoverage = (int) ($friends['coverage_month'] ?? 0);
+$fruit = $overview['fruit'] ?? [
+    'today' => 0,
+    'target' => 3,
+    'today_done' => false,
+    'week_days_done' => 0,
+    'week_days' => 7,
+    'month_days_done' => 0,
+    'month_days' => 0,
+    'year_days_done' => 0,
+    'year_days' => 0,
+    'avg_week' => 0,
+    'streak' => 0,
+];
+$fruitTodayPct = max(0, min(100, round(((float) ($fruit['today'] ?? 0) / max(1.0, (float) ($fruit['target'] ?? 3))) * 100)));
+$fruitWeekPct = ((int) ($fruit['week_days'] ?? 0)) > 0
+    ? round(((int) ($fruit['week_days_done'] ?? 0) / max(1, (int) $fruit['week_days'])) * 100)
+    : 0;
+$fruitMonthPct = ((int) ($fruit['month_days'] ?? 0)) > 0
+    ? round(((int) ($fruit['month_days_done'] ?? 0) / max(1, (int) $fruit['month_days'])) * 100)
+    : 0;
 $areaCount = count($areaSnap);
 $areaCountSafe = max(1, $areaCount);
 
@@ -208,6 +269,156 @@ if ($compareOptions === []) {
             <header><strong>Promedio diario</strong></header>
             <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= e(number_format((float) ($weeklyPlan['avg_completion'] ?? 0), 0)) ?>%</div>
             <div class="muted small" style="margin-top:8px"><?= (int) ($weeklyPlan['tasks_done'] ?? 0) ?> / <?= (int) ($weeklyPlan['tasks_total'] ?? 0) ?> tareas</div>
+        </article>
+    </div>
+</section>
+
+<section class="card" style="margin-top:16px">
+    <div class="card-header">
+        <h2>Hitos</h2>
+        <a class="text-link" href="<?= e(url('/milestones')) ?>">Ver hitos →</a>
+    </div>
+    <div class="kpi-grid kpi-grid-4" style="margin:0">
+        <article class="metrics-area-card">
+            <header><strong>Pendientes</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($ms['pending_due'] ?? 0) ?></div>
+            <div class="muted small" style="margin-top:8px">Hoy o vencidos (bloquean Hoy)</div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Próximos</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($ms['upcoming'] ?? 0) ?></div>
+            <div class="muted small" style="margin-top:8px">Todavía no llegaron</div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Hechos</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= $msDone ?></div>
+            <div class="progress"><span style="width:<?= e((string) min(100, $msPct)) ?>%;background:var(--color-mint)"></span></div>
+            <div class="muted small" style="margin-top:8px"><?= $msPct ?>% de <?= $msTotal ?></div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Total</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= $msTotal ?></div>
+            <div class="muted small" style="margin-top:8px">Cargados en Hitos</div>
+        </article>
+    </div>
+</section>
+
+<section class="card" style="margin-top:16px">
+    <div class="card-header">
+        <h2>Agua</h2>
+        <a class="text-link" href="<?= e(url('/today')) ?>">Registrar en Hoy →</a>
+    </div>
+    <div class="kpi-grid kpi-grid-4" style="margin:0">
+        <article class="metrics-area-card">
+            <header><strong>Hoy</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0">
+                <?= e(number_format((float) ($water['today_ml'] ?? 0), 0, ',', '.')) ?>
+                <span class="muted" style="font-size:0.85rem;font-weight:600">ml</span>
+            </div>
+            <div class="progress"><span style="width:<?= (int) $waterTodayPct ?>%;background:var(--color-primary)"></span></div>
+            <div class="muted small" style="margin-top:8px">
+                de <?= e(number_format((float) ($water['target_ml'] ?? 2000), 0, ',', '.')) ?> ml
+                <?= !empty($water['today_done']) ? '· meta ok' : '' ?>
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Esta semana</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($water['week_days_done'] ?? 0) ?>/<?= (int) ($water['week_days'] ?? 0) ?></div>
+            <div class="progress"><span style="width:<?= (int) $waterWeekPct ?>%;background:var(--color-mint)"></span></div>
+            <div class="muted small" style="margin-top:8px">días con 2 L de 7 · prom. <?= e(number_format((float) ($water['avg_week_ml'] ?? 0), 0, ',', '.')) ?> ml</div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Este mes</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($water['month_days_done'] ?? 0) ?>/<?= (int) ($water['month_days'] ?? 0) ?></div>
+            <div class="progress"><span style="width:<?= (int) $waterMonthPct ?>%;background:var(--color-peach)"></span></div>
+            <div class="muted small" style="margin-top:8px"><?= (int) $waterMonthPct ?>% de los <?= (int) ($water['month_days'] ?? 0) ?> días (meta 2 L/día)</div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Racha</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($water['streak'] ?? 0) ?></div>
+            <div class="muted small" style="margin-top:8px">días seguidos · <?= (int) ($water['year_days_done'] ?? 0) ?> en el año</div>
+        </article>
+    </div>
+</section>
+
+<section class="card" style="margin-top:16px">
+    <div class="card-header">
+        <h2>Frutas</h2>
+        <a class="text-link" href="<?= e(url('/today')) ?>">Registrar en Hoy →</a>
+    </div>
+    <div class="kpi-grid kpi-grid-4" style="margin:0">
+        <article class="metrics-area-card">
+            <header><strong>Hoy</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0">
+                <?= (int) ($fruit['today'] ?? 0) ?>
+                <span class="muted" style="font-size:0.85rem;font-weight:600">/ <?= (int) ($fruit['target'] ?? 3) ?></span>
+            </div>
+            <div class="progress"><span style="width:<?= (int) $fruitTodayPct ?>%;background:var(--color-peach)"></span></div>
+            <div class="muted small" style="margin-top:8px">
+                banana · mandarina · naranja
+                <?= !empty($fruit['today_done']) ? ' · meta ok' : '' ?>
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Esta semana</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($fruit['week_days_done'] ?? 0) ?>/<?= (int) ($fruit['week_days'] ?? 7) ?></div>
+            <div class="progress"><span style="width:<?= (int) $fruitWeekPct ?>%;background:var(--color-mint)"></span></div>
+            <div class="muted small" style="margin-top:8px">días con 3 · prom. <?= e(number_format((float) ($fruit['avg_week'] ?? 0), 1, ',', '.')) ?></div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Este mes</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($fruit['month_days_done'] ?? 0) ?>/<?= (int) ($fruit['month_days'] ?? 0) ?></div>
+            <div class="progress"><span style="width:<?= (int) $fruitMonthPct ?>%;background:var(--color-yellow)"></span></div>
+            <div class="muted small" style="margin-top:8px"><?= (int) $fruitMonthPct ?>% de los <?= (int) ($fruit['month_days'] ?? 0) ?> días (meta 3/día)</div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Racha</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($fruit['streak'] ?? 0) ?></div>
+            <div class="muted small" style="margin-top:8px">días seguidos · <?= (int) ($fruit['year_days_done'] ?? 0) ?> en el año</div>
+        </article>
+    </div>
+</section>
+
+<section class="card" style="margin-top:16px">
+    <div class="card-header">
+        <h2>Amigos/as · interacción</h2>
+        <a class="text-link" href="<?= e(url('/friends')) ?>">Ver lista →</a>
+    </div>
+    <div class="kpi-grid kpi-grid-4" style="margin:0">
+        <article class="metrics-area-card">
+            <header><strong>Cobertura del mes</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= $friendsCoverage ?>%</div>
+            <div class="progress"><span style="width:<?= min(100, $friendsCoverage) ?>%;background:var(--color-lavender)"></span></div>
+            <div class="muted small" style="margin-top:8px">
+                <?= (int) ($friends['talked_month'] ?? 0) ?> de <?= $friendsTotal ?> este mes
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Esta semana</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($friends['talked_week'] ?? 0) ?></div>
+            <div class="muted small" style="margin-top:8px">
+                personas · <?= (int) ($friends['talks_week'] ?? 0) ?> charlas · <?= (int) ($friends['days_week'] ?? 0) ?> días
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Racha</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($friends['streak'] ?? 0) ?></div>
+            <div class="muted small" style="margin-top:8px">
+                días seguidos con al menos una charla
+                <?php if (!empty($friends['last_talk_date'])): ?>
+                    · última <?= e(format_date((string) $friends['last_talk_date'], 'd M')) ?>
+                <?php endif; ?>
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>En el año</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($friends['talks_year'] ?? 0) ?></div>
+            <div class="muted small" style="margin-top:8px">
+                charlas · <?= (int) ($friends['talked_year'] ?? 0) ?> personas · <?= (int) ($friends['never'] ?? 0) ?> sin hablar
+                <?php if (!empty($friends['suggested']['name'])): ?>
+                    · hoy: <?= e((string) $friends['suggested']['name']) ?>
+                <?php endif; ?>
+            </div>
         </article>
     </div>
 </section>

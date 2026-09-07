@@ -172,15 +172,26 @@ function csrf_field(): string
     return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
 }
 
+function request_csrf_token(): string
+{
+    $posted = $_POST['_csrf'] ?? '';
+    if (is_string($posted) && $posted !== '') {
+        return $posted;
+    }
+    $header = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    return is_string($header) ? $header : '';
+}
+
 function verify_csrf(): void
 {
-    $token = $_POST['_csrf'] ?? '';
-    if (!is_string($token) || $token === '' || !hash_equals(csrf_token(), $token)) {
+    $token = request_csrf_token();
+    $expected = (string) ($_SESSION['_csrf'] ?? '');
+    if ($expected === '' || $token === '' || !hash_equals($expected, $token)) {
         if (wants_json_request()) {
-            json_response(['ok' => false, 'error' => 'Token CSRF inválido. Recargá la página e intentá de nuevo.'], 419);
+            json_response(['ok' => false, 'error' => 'La sesión quedó desfasada. Recargá la página e intentá de nuevo.'], 419);
         }
-        http_response_code(419);
-        exit('Token CSRF inválido');
+        flash('error', 'La sesión quedó desfasada. Recargá la página e intentá de nuevo.');
+        redirect(isset($_SESSION['user']['id']) ? '/today' : '/login');
     }
 }
 

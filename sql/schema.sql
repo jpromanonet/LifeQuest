@@ -1,4 +1,26 @@
--- LifeQuest schema (MySQL 8+)
+-- =============================================================================
+-- LifeQuest — ÚNICO archivo SQL del proyecto
+-- =============================================================================
+-- Este es el único DDL de la app. No hay migraciones .sql sueltas ni dumps
+-- versionados: install.php aplica este archivo; migrate.php solo hace ALTERs
+-- idempotentes en PHP para instalaciones ya existentes.
+--
+-- MySQL 8+ / MariaDB compatible · utf8mb4
+--
+-- Hábitos de sistema (is_system=1): se crean por usuario al instalar / entrar.
+-- No son editables ni borrables desde la UI. Catálogo (habit_key):
+--   sys_water       Tomar mínimo 2 litros de agua     (daily_qty, 2000 ml)
+--   sys_fruit       Comer 3 frutas                    (daily_qty, 3)
+--   sys_care        Cuidado personal                  (daily)
+--   sys_dress       Vestirse                          (daily)
+--   sys_breakfast   Desayuno                          (daily)
+--   sys_lunch       Almuerzo                          (daily)
+--   sys_snack       Merienda                          (daily)
+--   sys_dinner      Cena                              (daily)
+--   sys_go_out      Salir de casa                     (daily)
+--   sys_talk_friend Hablar con algún amigo/a          (daily)
+-- =============================================================================
+
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
 
@@ -197,7 +219,7 @@ CREATE TABLE IF NOT EXISTS habits (
   description TEXT NULL,
   area_id BIGINT UNSIGNED NULL,
   frequency_type ENUM('daily','weekdays','weekly','monthly','interval','custom_days') NOT NULL DEFAULT 'daily',
-  tracking_mode ENUM('months','units','daily') NOT NULL DEFAULT 'months',
+  tracking_mode ENUM('months','units','daily','daily_qty') NOT NULL DEFAULT 'months',
   target_per_period INT NOT NULL DEFAULT 1,
   current_value DECIMAL(12,2) NOT NULL DEFAULT 0,
   progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
@@ -209,6 +231,7 @@ CREATE TABLE IF NOT EXISTS habits (
   active TINYINT(1) NOT NULL DEFAULT 1,
   linked_goal_id BIGINT UNSIGNED NULL,
   notes TEXT NULL,
+  is_system TINYINT(1) NOT NULL DEFAULT 0,
   archived_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -464,6 +487,30 @@ CREATE TABLE IF NOT EXISTS milestones (
   KEY idx_milestones_user_date (user_id, milestone_date, deleted_at),
   KEY idx_milestones_user_pending (user_id, is_done, milestone_date, deleted_at),
   CONSTRAINT fk_milestones_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS friends (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  KEY idx_friends_user (user_id, deleted_at, sort_order),
+  CONSTRAINT fk_friends_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS friend_talk_logs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  friend_id BIGINT UNSIGNED NOT NULL,
+  talk_date DATE NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_friend_talk (user_id, friend_id, talk_date),
+  KEY idx_friend_talk_user_date (user_id, talk_date),
+  CONSTRAINT fk_friend_talk_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_friend_talk_friend FOREIGN KEY (friend_id) REFERENCES friends(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS audit_logs (

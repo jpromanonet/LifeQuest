@@ -27,13 +27,14 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <title><?= e(($title ?? 'LifeQuest') . ' · ' . $appName) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=61">
+    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=65">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-    <script src="<?= e(url('/assets/js/app.js')) ?>?v=61" defer></script>
+    <script src="<?= e(url('/assets/js/app.js')) ?>?v=65" defer></script>
 </head>
 <body class="app-body" data-app-index="<?= e(base_path() . '/index.php') ?>">
 <div class="app-shell">
@@ -68,6 +69,7 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
                 'weekly' => ['Plan semanal', '/weekly', 'week'],
                 'habits' => ['Hábitos', '/habits', 'check'],
                 'milestones' => ['Hitos', '/milestones', 'milestone'],
+                'friends' => ['Amigos/as', '/friends', 'friends'],
                 'horizon' => ['Horizontes', '/horizon', 'horizon'],
                 'rules' => ['Reglas propias', '/rules', 'rules'],
                 'metrics' => ['Métricas', '/metrics', 'chart'],

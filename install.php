@@ -11,7 +11,10 @@ require_once __DIR__ . '/config/env.php';
 require_once __DIR__ . '/app/Database.php';
 require_once __DIR__ . '/app/helpers.php';
 require_once __DIR__ . '/app/Services/SeedManifest.php';
+require_once __DIR__ . '/app/Services/HabitService.php';
 require_once __DIR__ . '/app/Services/SeedService.php';
+require_once __DIR__ . '/app/Services/FriendService.php';
+require_once __DIR__ . '/app/Services/MilestoneService.php';
 
 $appConfig = require __DIR__ . '/config/app.php';
 $dbConfig = require __DIR__ . '/config/database.php';

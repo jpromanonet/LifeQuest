@@ -27,6 +27,14 @@ $habitYear = $habitYear ?? (int) date('Y');
             $group = (int) ($habit['color_group'] ?? habit_color_group($num));
             $mode = (string) ($habit['tracking_mode'] ?? 'months');
             $done = ($habit['log_status'] ?? null) === 'completed' || ($habit['log_status'] ?? null) === 'partial';
+            $isSystem = !empty($habit['is_system']);
+            $isWater = ($habit['habit_key'] ?? '') === HabitService::KEY_WATER;
+            $isFruit = ($habit['habit_key'] ?? '') === HabitService::KEY_FRUIT;
+            $isQty = $isWater || $isFruit || $mode === 'daily_qty';
+            $friend = $habit['suggested_friend'] ?? null;
+            if ($isQty) {
+                $done = (float) ($habit['log_quantity'] ?? 0) + 0.0001 >= (float) ($habit['target_per_period'] ?? ($isFruit ? 3 : 2000));
+            }
             $monthChecks = $habit['month_checks'] ?? MonthProgress::emptyMap();
             $monthsCsv = [];
             for ($m = 1; $m <= 12; $m++) {
@@ -36,9 +44,10 @@ $habitYear = $habitYear ?? (int) date('Y');
             }
             ?>
             <li
-                class="habit-row<?= $done ? ' is-done' : '' ?>"
+                class="habit-row<?= $done ? ' is-done' : '' ?><?= $isSystem ? ' is-system' : '' ?>"
                 data-color-group="<?= $group ?>"
                 data-habit-id="<?= (int) $habit['id'] ?>"
+                <?php if (!$isSystem): ?>
                 data-edit-habit
                 data-id="<?= (int) $habit['id'] ?>"
                 data-name="<?= e((string) $habit['name']) ?>"
@@ -53,15 +62,25 @@ $habitYear = $habitYear ?? (int) date('Y');
                 data-frequency="<?= e((string) ($habit['frequency_type'] ?? 'daily')) ?>"
                 role="button"
                 tabindex="0"
+                <?php endif; ?>
+                data-is-system="<?= $isSystem ? '1' : '0' ?>"
             >
                 <span class="habit-drag" data-drag-handle title="Arrastrar para reordenar" aria-label="Arrastrar para reordenar">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
                 </span>
                 <span class="habit-num"><?= $num ?></span>
                 <span class="habit-meta">
-                    <span class="habit-name"><?= e((string) $habit['name']) ?></span>
+                    <span class="habit-name">
+                        <?= e((string) $habit['name']) ?>
+                        <?php if ($isSystem): ?><span class="habit-system-badge">Sistema</span><?php endif; ?>
+                        <?php if ($friend && ($habit['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND): ?>
+                            <span class="habit-friend-hint">Hoy: <?= e((string) $friend['name']) ?></span>
+                        <?php endif; ?>
+                    </span>
                     <span class="muted small">
-                        <?php if ($mode === 'units'): ?>
+                        <?php if ($isSystem): ?>
+                            Diario · lunes a lunes
+                        <?php elseif ($mode === 'units'): ?>
                             <?= e(number_format((float) ($habit['current_value'] ?? 0), 0)) ?> /
                             <?= e(number_format((float) ($habit['target_per_period'] ?? 0), 0)) ?>
                             <?= e((string) ($habit['unit'] ?? 'unidades')) ?>
@@ -73,7 +92,13 @@ $habitYear = $habitYear ?? (int) date('Y');
                         <?php endif; ?>
                     </span>
                 </span>
-                <?php if ($mode === 'units'): ?>
+                <?php if ($isFruit):
+                    $returnPath = '/habits';
+                    include dirname(__DIR__) . '/partials/habit_fruit.php';
+                elseif ($isWater || $isQty):
+                    $returnPath = '/habits';
+                    include dirname(__DIR__) . '/partials/habit_water.php';
+                elseif ($mode === 'units'): ?>
                     <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-lq-save onclick="event.stopPropagation()">
                         <?= csrf_field() ?>
                         <?= route_field('/habits/' . (int) $habit['id'] . '/units') ?>
@@ -83,6 +108,7 @@ $habitYear = $habitYear ?? (int) date('Y');
                 <?php elseif ($mode === 'months'): ?>
                     <span class="muted small"><?= e(number_format((float) ($habit['progress_percent'] ?? 0), 0)) ?>%</span>
                 <?php endif; ?>
+                <?php if (!$isQty): ?>
                 <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-habit-toggle onclick="event.stopPropagation()">
                     <?= csrf_field() ?>
                     <?= route_field('/habits/log') ?>
@@ -90,11 +116,15 @@ $habitYear = $habitYear ?? (int) date('Y');
                     <input type="hidden" name="date" value="<?= e($todayDate) ?>">
                     <input type="hidden" name="status" value="<?= $done ? 'missed' : 'completed' ?>">
                     <input type="hidden" name="redirect" value="/habits">
+                    <?php if ($friend): ?>
+                        <input type="hidden" name="friend_id" value="<?= (int) $friend['id'] ?>">
+                    <?php endif; ?>
                     <label class="check-toggle" title="Marcar hecho hoy">
                         <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $habit['name']) ?> hoy">
                         <span></span>
                     </label>
                 </form>
+                <?php endif; ?>
             </li>
         <?php endforeach; ?>
     </ul>

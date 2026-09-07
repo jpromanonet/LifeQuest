@@ -22,22 +22,29 @@ final class Auth
 
         ini_set('session.gc_maxlifetime', (string) max($lifetime, $idle));
 
+        $cookiePath = self::sessionCookiePath();
         session_name($name);
         session_set_cookie_params([
             'lifetime' => $lifetime,
-            'path' => '/',
+            'path' => $cookiePath,
             'secure' => $secure,
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
         session_start([
             'cookie_lifetime' => $lifetime,
+            'cookie_path' => $cookiePath,
             'cookie_httponly' => true,
             'cookie_samesite' => 'Lax',
             'cookie_secure' => $secure,
             'use_strict_mode' => true,
             'use_only_cookies' => true,
         ]);
+
+        if (empty($_SESSION['_cookie_paths_cleaned'])) {
+            self::expireStraySessionCookies($cookiePath, $secure);
+            $_SESSION['_cookie_paths_cleaned'] = 1;
+        }
 
         self::enforceIdleTimeout($idle, $lifetime);
     }
@@ -84,6 +91,15 @@ final class Auth
         $upd = Database::pdo()->prepare('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = :id');
         $upd->execute(['id' => $user['id']]);
 
+        // Cada login asegura hábitos de sistema (nuevos deploys / usuarios viejos).
+        if (class_exists(HabitService::class)) {
+            try {
+                (new HabitService())->ensureSystemHabits((int) $user['id']);
+            } catch (Throwable) {
+                // no bloquear el login
+            }
+        }
+
         return true;
     }
 
@@ -106,18 +122,14 @@ final class Auth
     {
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params['path'] ?? '/',
-                $params['domain'] ?? '',
-                (bool) ($params['secure'] ?? false),
-                (bool) ($params['httponly'] ?? true)
-            );
+            $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+            $path = self::sessionCookiePath();
+            self::expireSessionCookie($path, $secure);
+            self::expireStraySessionCookies($path, $secure);
         }
-        session_destroy();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
     }
 
     public static function requireLogin(): void
@@ -150,6 +162,36 @@ final class Auth
         self::refreshSessionCookie($cookieLifetime > 0 ? $cookieLifetime : $idleSeconds);
     }
 
+    /** Path de la cookie = carpeta de la app (/lifequest), no / — evita dos cookies con el mismo nombre. */
+    private static function sessionCookiePath(): string
+    {
+        $base = function_exists('base_path') ? base_path() : '';
+        if ($base === '' || $base === '/') {
+            return '/';
+        }
+        return $base;
+    }
+
+    private static function expireSessionCookie(string $path, bool $secure): void
+    {
+        setcookie(session_name(), '', [
+            'expires' => time() - 42000,
+            'path' => $path,
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+
+    private static function expireStraySessionCookies(string $canonicalPath, bool $secure): void
+    {
+        // Solo la cookie vieja en "/". No tocar "/lifequest/" — algunos clientes
+        // la tratan igual que "/lifequest" y borran la sesión recién creada.
+        if ($canonicalPath !== '/') {
+            self::expireSessionCookie('/', $secure);
+        }
+    }
+
     /** Corre la expiración de la cookie 24 h (u otra vida) desde esta visita. */
     private static function refreshSessionCookie(int $lifetime): void
     {
@@ -157,9 +199,10 @@ final class Auth
             return;
         }
         $params = session_get_cookie_params();
+        $path = $params['path'] !== '' ? $params['path'] : self::sessionCookiePath();
         $options = [
             'expires' => time() + $lifetime,
-            'path' => $params['path'] !== '' ? $params['path'] : '/',
+            'path' => $path,
             'secure' => (bool) ($params['secure'] ?? false),
             'httponly' => (bool) ($params['httponly'] ?? true),
             'samesite' => $params['samesite'] !== '' ? $params['samesite'] : 'Lax',

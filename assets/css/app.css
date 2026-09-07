@@ -1428,6 +1428,15 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
   transition: box-shadow var(--transition), border-color var(--transition);
 }
 
+.habit-row:has(.habit-water) {
+  align-items: flex-start;
+}
+
+.habit-row:has(.habit-water) .habit-name {
+  flex: 1;
+  min-width: 0;
+}
+
 .habit-row[data-color-group="0"] { background: var(--color-primary-soft); }
 .habit-row[data-color-group="1"] { background: var(--color-mint-soft); }
 .habit-row[data-color-group="2"] { background: var(--color-peach-soft); }
@@ -1440,6 +1449,10 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
 
 .habit-row[data-edit-habit] {
   cursor: pointer;
+}
+
+.habit-row.is-system {
+  cursor: default;
 }
 
 .habit-drag {
@@ -2950,6 +2963,139 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
   .milestone-actions {
     width: 100%;
   }
+}
+
+.habit-system-badge {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-mint-soft);
+  color: var(--color-success);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.habit-friend-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary-strong);
+}
+
+.habit-water {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 11rem;
+  flex: 0 0 auto;
+}
+
+.habit-water-meta {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.habit-water-meta strong {
+  color: var(--color-text);
+  font-size: 0.85rem;
+}
+
+.habit-water-bar {
+  width: 100%;
+  height: 5px;
+  margin: 0;
+}
+
+.habit-water-bar > span {
+  background: linear-gradient(90deg, #7ec8ea, #4FAF8E);
+}
+
+.habit-water-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.habit-water-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.habit-water-btn.is-plus {
+  border-color: color-mix(in srgb, #7ec8ea 50%, var(--color-border));
+  background: color-mix(in srgb, #7ec8ea 16%, var(--color-surface));
+}
+
+.habit-water-btn.is-minus {
+  opacity: 0.8;
+}
+
+.habit-water-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.habit-row.is-done .habit-water-meta strong {
+  color: var(--color-success);
+}
+
+.habit-fruit-bar > span {
+  background: linear-gradient(90deg, #F4B8A8, #F6D58A);
+}
+
+.habit-water-btn.is-fruit.is-banana {
+  border-color: color-mix(in srgb, #F6D58A 55%, var(--color-border));
+  background: color-mix(in srgb, #F6D58A 22%, var(--color-surface));
+  color: #9a7a20;
+}
+
+.habit-water-btn.is-fruit.is-mandarina {
+  border-color: color-mix(in srgb, #F4B8A8 55%, var(--color-border));
+  background: color-mix(in srgb, #F4B8A8 22%, var(--color-surface));
+  color: #c46a4a;
+}
+
+.habit-water-btn.is-fruit.is-naranja {
+  border-color: color-mix(in srgb, #f0a060 55%, var(--color-border));
+  background: color-mix(in srgb, #f0a060 20%, var(--color-surface));
+  color: #c46b20;
+}
+
+.habit-row:has(.habit-fruit) {
+  align-items: center;
+}
+
+.friend-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-edit-form input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font: inherit;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 @media (max-width: 900px) {

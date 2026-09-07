@@ -17,7 +17,9 @@ final class HabitsController
     {
         Auth::requireLogin();
         $userId = Auth::id();
+        $this->habits->ensureSystemHabits($userId);
         $list = $this->habits->listActive($userId);
+        $suggestedFriend = (new FriendService())->nextSuggestion($userId);
         $today = now_local()->format('Y-m-d');
         $logsToday = $this->habits->logsForDate($userId, $today);
 
@@ -25,6 +27,10 @@ final class HabitsController
         foreach ($list as &$habit) {
             $habit['log'] = $logsToday[(int) $habit['id']] ?? null;
             $habit['log_status'] = $habit['log']['status'] ?? null;
+            $habit['log_quantity'] = isset($habit['log']['quantity']) ? (float) $habit['log']['quantity'] : 0.0;
+            if (($habit['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND) {
+                $habit['suggested_friend'] = $suggestedFriend;
+            }
             if (($habit['tracking_mode'] ?? '') === 'months') {
                 $mp = $this->habits->monthProgress($userId, (int) $habit['id'], $habitYear);
                 $habit['month_checks'] = $mp['months'];
@@ -41,6 +47,9 @@ final class HabitsController
         $selectedId = (int) (input('id') ?: 0);
         if ($selectedId > 0) {
             $selected = $this->habits->find($userId, $selectedId);
+            if ($selected && $this->habits->isSystem($selected)) {
+                $selected = null;
+            }
             if ($selected) {
                 $streak = $this->habits->streak($selectedId);
                 $recentLogs = $this->recentLogs($selectedId, 30);
@@ -191,6 +200,7 @@ final class HabitsController
 
         try {
             $this->habits->log($userId, $habitId, $date, $status, $qty, $note !== null ? (string) $note : null);
+            $this->syncFriendTalk($userId, $habitId, $date, $status);
             $this->audit->log($userId, 'habit.log', 'habit', $habitId, [
                 'date' => $date,
                 'status' => $status,
@@ -242,6 +252,48 @@ final class HabitsController
             }
             flash('error', 'No se pudo actualizar el mes.');
             redirect('/habits');
+        }
+    }
+
+    public function addQty(string $id): void
+    {
+        Auth::requireLogin();
+        verify_csrf();
+        $userId = Auth::id();
+        $habitId = (int) $id;
+        $delta = (float) input('delta', 0);
+        $date = (string) (input('date') ?: now_local()->format('Y-m-d'));
+        $habit = $this->habits->find($userId, $habitId);
+        $key = (string) ($habit['habit_key'] ?? '');
+        $allowed = $key === HabitService::KEY_FRUIT
+            ? [-1, 1]
+            : [-500, -250, 250, 500];
+        if (!in_array((int) $delta, $allowed, true)) {
+            if ($this->wantsJson()) {
+                json_response(['ok' => false, 'error' => 'Cantidad inválida.'], 422);
+            }
+            flash('error', 'Cantidad inválida.');
+            redirect((string) (input('redirect') ?: '/today'));
+            return;
+        }
+        try {
+            $progress = $this->habits->addDailyQuantity($userId, $habitId, $date, $delta);
+            $this->audit->log($userId, 'habit.qty', 'habit', $habitId, $progress);
+            if ($this->wantsJson()) {
+                json_response(['ok' => true, 'progress' => $progress]);
+            }
+            if ($key === HabitService::KEY_FRUIT) {
+                flash('success', $progress['done'] ? '3 frutas completadas.' : 'Fruta registrada.');
+            } else {
+                flash('success', $progress['done'] ? '2 litros alcanzados.' : 'Agua actualizada.');
+            }
+            redirect((string) (input('redirect') ?: '/today'));
+        } catch (Throwable $e) {
+            if ($this->wantsJson()) {
+                json_response(['ok' => false, 'error' => 'No se pudo actualizar.'], 422);
+            }
+            flash('error', 'No se pudo actualizar.');
+            redirect((string) (input('redirect') ?: '/today'));
         }
     }
 
@@ -343,6 +395,31 @@ final class HabitsController
         );
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetchAll();
+    }
+
+    private function syncFriendTalk(int $userId, int $habitId, string $date, string $status): void
+    {
+        $habit = $this->habits->find($userId, $habitId);
+        if ($habit === null || ($habit['habit_key'] ?? '') !== HabitService::KEY_TALK_FRIEND) {
+            return;
+        }
+        $friends = new FriendService();
+        $existing = $friends->talkedOnDate($userId, $date);
+        if ($status === 'completed' || $status === 'partial') {
+            if ($existing !== null) {
+                return; // Ya quedó fijo el/la del día
+            }
+            $friendId = (int) input('friend_id', 0);
+            if ($friendId < 1) {
+                $suggested = $friends->suggestionForDate($userId, $date);
+                $friendId = (int) ($suggested['id'] ?? 0);
+            }
+            if ($friendId > 0) {
+                $friends->recordTalk($userId, $friendId, $date);
+            }
+            return;
+        }
+        $friends->clearTalksOnDate($userId, $date);
     }
 
     private function wantsJson(): bool

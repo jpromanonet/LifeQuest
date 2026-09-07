@@ -116,8 +116,101 @@
   }
 
   function csrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) {
+      var content = meta.getAttribute('content');
+      if (content) {
+        return content;
+      }
+    }
     var el = document.querySelector('input[name="_csrf"]');
     return el ? el.value : '';
+  }
+
+  function attachCsrf(init) {
+    init = init || {};
+    var method = String(init.method || 'GET').toUpperCase();
+    if (method === 'GET' || method === 'HEAD') {
+      return init;
+    }
+    var token = csrfToken();
+    if (!token) {
+      return init;
+    }
+    var headers = init.headers;
+    if (headers instanceof Headers) {
+      if (!headers.has('X-CSRF-Token')) {
+        headers.set('X-CSRF-Token', token);
+      }
+    } else {
+      headers = Object.assign({}, headers || {});
+      if (!headers['X-CSRF-Token']) {
+        headers['X-CSRF-Token'] = token;
+      }
+      init.headers = headers;
+    }
+    if (typeof FormData !== 'undefined' && init.body instanceof FormData && !init.body.get('_csrf')) {
+      init.body.append('_csrf', token);
+    }
+    return init;
+  }
+
+  var rawFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    return rawFetch(input, attachCsrf(init));
+  };
+
+  function initDailyQty() {
+    document.querySelectorAll('[data-qty-delta], [data-water-delta]').forEach(function (form) {
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var wrap = form.closest('[data-habit-qty], [data-habit-water]');
+        var body = new FormData(form);
+        fetch(appIndex(), {
+          method: 'POST',
+          body: body,
+          headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin',
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              if (!res.ok || (data && data.ok === false)) {
+                throw new Error((data && data.error) || 'No se pudo actualizar.');
+              }
+              return data;
+            });
+          })
+          .then(function (data) {
+            var progress = (data && data.progress) || {};
+            var qty = Number(progress.quantity) || 0;
+            var target = Number(progress.target) || 1;
+            if (wrap) {
+              var qtyEl = wrap.querySelector('[data-qty-value], [data-water-qty]');
+              var bar = wrap.querySelector('[data-qty-bar], [data-water-bar]');
+              if (qtyEl) {
+                qtyEl.textContent = String(Math.round(qty));
+              }
+              if (bar) {
+                bar.style.width = String(Math.min(100, Math.round((qty / target) * 100))) + '%';
+              }
+              var row = wrap.closest('.habit-row');
+              if (row) {
+                row.classList.toggle('is-done', !!progress.done);
+              }
+            }
+          })
+          .catch(function (err) {
+            showToast((err && err.message) || 'No se pudo actualizar. Recargá la página.', true);
+          });
+      });
+    });
+  }
+
+  function initWaterQty() {
+    initDailyQty();
   }
 
   function initHabitToggles() {
@@ -1271,6 +1364,22 @@
       if (unitsForm) {
         setFormRoute(unitsForm, '/habits/' + id + '/units');
       }
+      var isSystem = source.getAttribute('data-is-system') === '1';
+      if (isSystem) {
+        return null;
+      }
+      var archiveBtn = document.querySelector('#habitEditModal button[form="habitArchiveForm"]');
+      var deleteBtn = document.querySelector('#habitEditModal button[form="habitDeleteForm"]');
+      if (archiveBtn) {
+        archiveBtn.hidden = isSystem;
+      }
+      if (deleteBtn) {
+        deleteBtn.hidden = isSystem;
+      }
+      var nameInput = document.getElementById('habitEditName');
+      if (nameInput) {
+        nameInput.readOnly = isSystem;
+      }
 
       var map = {
         habitEditName: 'data-name',
@@ -1346,7 +1455,7 @@
 
     document.addEventListener('click', function (event) {
       var row = event.target.closest('[data-edit-habit]');
-      if (!row) {
+      if (!row || row.getAttribute('data-is-system') === '1') {
         return;
       }
       if (event.target.closest('form, a, button, label, input, [data-drag-handle]')) {
@@ -1362,7 +1471,7 @@
         return;
       }
       var row = event.target.closest('[data-edit-habit]');
-      if (!row || event.target !== row) {
+      if (!row || row.getAttribute('data-is-system') === '1' || event.target !== row) {
         return;
       }
       event.preventDefault();
@@ -2313,6 +2422,7 @@
     initTheme();
     initThemeToggle();
     initHabitToggles();
+    initWaterQty();
     initTaskToggles();
     initWeeklyTaskModal();
     initRepeatDayGuards();

@@ -21,6 +21,7 @@ final class SeedService
         ];
 
         $pdo->beginTransaction();
+        $userId = 0;
         try {
             $userId = self::upsertUser($pdo, $manifest['user']);
             $report['user'] = 1;
@@ -55,8 +56,15 @@ final class SeedService
 
             $pdo->commit();
         } catch (Throwable $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             throw $e;
+        }
+
+        // Fuera de la transacción: hábitos imborrables de sistema (agua, frutas, etc.).
+        if ($userId > 0 && class_exists(HabitService::class)) {
+            (new HabitService())->ensureSystemHabits($userId);
         }
 
         return $report;

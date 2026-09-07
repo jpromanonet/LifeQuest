@@ -88,21 +88,45 @@ $hasWeekHours = $weekMinTotal > 0;
                     $done = ($habit['log_status'] ?? null) === 'completed' || ($habit['log_status'] ?? null) === 'partial';
                     $num = (int) ($habit['display_number'] ?? 0);
                     $group = (int) ($habit['color_group'] ?? habit_color_group($num));
+                    $isWater = ($habit['habit_key'] ?? '') === HabitService::KEY_WATER;
+                    $isFruit = ($habit['habit_key'] ?? '') === HabitService::KEY_FRUIT;
+                    $isQty = $isWater || $isFruit || ($habit['tracking_mode'] ?? '') === 'daily_qty';
+                    $friend = $habit['suggested_friend'] ?? null;
+                    $qtyDone = $isQty && ((float) ($habit['log_quantity'] ?? 0) + 0.0001 >= (float) ($habit['target_per_period'] ?? ($isFruit ? 3 : 2000)));
+                    $rowDone = $isQty ? $qtyDone : $done;
                     ?>
-                    <li class="habit-row<?= $done ? ' is-done' : '' ?>" data-color-group="<?= $group ?>" data-habit-id="<?= (int) $habit['id'] ?>">
+                    <li class="habit-row<?= $rowDone ? ' is-done' : '' ?>" data-color-group="<?= $group ?>" data-habit-id="<?= (int) $habit['id'] ?>">
                         <span class="habit-num"><?= $num ?></span>
-                        <span class="habit-name"><?= e((string) $habit['name']) ?></span>
+                        <span class="habit-name">
+                            <?= e((string) $habit['name']) ?>
+                            <?php if ($friend && ($habit['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND): ?>
+                                <span class="habit-friend-hint">Hoy: <?= e((string) $friend['name']) ?></span>
+                            <?php elseif (($habit['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND): ?>
+                                <span class="habit-friend-hint muted"><a href="<?= e(url('/friends')) ?>">Cargá amigos/as</a></span>
+                            <?php endif; ?>
+                        </span>
+                        <?php if ($isFruit):
+                            $returnPath = '/today';
+                            include dirname(__DIR__) . '/partials/habit_fruit.php';
+                        elseif ($isWater || $isQty):
+                            $returnPath = '/today';
+                            include dirname(__DIR__) . '/partials/habit_water.php';
+                        else: ?>
                         <form method="post" action="<?= e(url('/habits/log')) ?>" class="habit-toggle-form" data-habit-toggle>
                             <?= csrf_field() ?>
                             <input type="hidden" name="habit_id" value="<?= (int) $habit['id'] ?>">
                             <input type="hidden" name="date" value="<?= e($todayDate) ?>">
                             <input type="hidden" name="status" value="<?= $done ? 'missed' : 'completed' ?>">
                             <input type="hidden" name="redirect" value="/today">
+                            <?php if ($friend): ?>
+                                <input type="hidden" name="friend_id" value="<?= (int) $friend['id'] ?>">
+                            <?php endif; ?>
                             <label class="check-toggle">
                                 <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $habit['name']) ?>">
                                 <span></span>
                             </label>
                         </form>
+                        <?php endif; ?>
                     </li>
                 <?php endforeach; ?>
             </ul>

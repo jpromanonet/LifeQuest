@@ -14,7 +14,15 @@ final class TodayController
         $habits = new HabitService();
         $metrics = new MetricsService($habits);
 
+        $habits->ensureSystemHabits($userId);
         $todayHabits = $habits->todayHabits($userId);
+        $suggestedFriend = (new FriendService())->nextSuggestion($userId, $now->format('Y-m-d'));
+        foreach ($todayHabits as &$th) {
+            if (($th['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND) {
+                $th['suggested_friend'] = $suggestedFriend;
+            }
+        }
+        unset($th);
         $overview = $metrics->overview($userId, ['year' => (int) $now->format('Y')]);
         $yearProgress = $this->yearProgress($now);
 

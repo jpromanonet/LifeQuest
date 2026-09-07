@@ -47,6 +47,7 @@ $router->post('/habits/{id}/delete', [$habits, 'destroy']);
 $router->post('/habits/{id}/log', [$habits, 'log']);
 $router->post('/habits/{id}/months', [$habits, 'toggleMonth']);
 $router->post('/habits/{id}/units', [$habits, 'bumpUnits']);
+$router->post('/habits/{id}/qty', [$habits, 'addQty']);
 $router->post('/habits/{id}', [$habits, 'update']);
 
 $metrics = new MetricsController();
@@ -92,6 +93,12 @@ $router->post('/milestones/{id}', [$milestones, 'update']);
 $router->post('/milestones/{id}/complete', [$milestones, 'complete']);
 $router->post('/milestones/{id}/reopen', [$milestones, 'reopen']);
 $router->post('/milestones/{id}/delete', [$milestones, 'destroy']);
+
+$friends = new FriendsController();
+$router->get('/friends', [$friends, 'index']);
+$router->post('/friends', [$friends, 'store']);
+$router->post('/friends/{id}', [$friends, 'update']);
+$router->post('/friends/{id}/delete', [$friends, 'destroy']);
 
 $router->get('/archive', [new ArchiveController(), 'index']);
 
