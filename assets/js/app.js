@@ -1637,7 +1637,7 @@
         if (numEl) {
           numEl.textContent = String(n);
         }
-        row.setAttribute('data-color-group', String(Math.floor((n - 1) / 3) % 5));
+        row.setAttribute('data-color-group', String(Math.floor((n - 1) / 3) % 12));
       });
     }
 

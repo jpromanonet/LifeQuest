@@ -382,7 +382,8 @@ function habit_color_group(int $displayNumber): int
     if ($displayNumber < 1) {
         return 0;
     }
-    return intdiv($displayNumber - 1, 3) % 5;
+    // Cada 3 hábitos cambia de color; 12 pasteles → se repite recién a partir del 37.
+    return intdiv($displayNumber - 1, 3) % 12;
 }
 
 /** Color sólido del grupo pastel de hábitos (para charts). */
@@ -393,6 +394,13 @@ function habit_color_hex(int $displayNumber): string
         2 => '#F4B8A8',
         3 => '#F6D58A',
         4 => '#C9B6E4',
+        5 => '#6EB6D9',
+        6 => '#E8A0B5',
+        7 => '#8BB894',
+        8 => '#E89A6E',
+        9 => '#C4B59A',
+        10 => '#B39DD9',
+        11 => '#5FB8B0',
         default => '#7C83E1',
     };
 }

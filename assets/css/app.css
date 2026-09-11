@@ -18,6 +18,20 @@
   --color-yellow-soft: #FFF5D9;
   --color-lavender: #C9B6E4;
   --color-lavender-soft: #F0EAF8;
+  --color-sky: #6EB6D9;
+  --color-sky-soft: #DFF3FB;
+  --color-rose: #E8A0B5;
+  --color-rose-soft: #F9E4EC;
+  --color-sage: #8BB894;
+  --color-sage-soft: #E5F0E4;
+  --color-coral: #E89A6E;
+  --color-coral-soft: #FFE4D6;
+  --color-sand: #C4B59A;
+  --color-sand-soft: #F5EFE6;
+  --color-lilac: #B39DD9;
+  --color-lilac-soft: #F3E8FF;
+  --color-aqua: #5FB8B0;
+  --color-aqua-soft: #D9F2EE;
   --color-text: #2E3142;
   --color-text-muted: #73778C;
   --color-border: #E5E7F2;
@@ -54,6 +68,20 @@
   --color-yellow-soft: #473D25;
   --color-lavender: #CFC2F0;
   --color-lavender-soft: #3B334F;
+  --color-sky: #7EC8E8;
+  --color-sky-soft: #243B4A;
+  --color-rose: #F0A8BC;
+  --color-rose-soft: #4A2F3A;
+  --color-sage: #9DCCA6;
+  --color-sage-soft: #2A3D30;
+  --color-coral: #F0A878;
+  --color-coral-soft: #4A3428;
+  --color-sand: #D4C4A8;
+  --color-sand-soft: #3D382E;
+  --color-lilac: #C4B0E8;
+  --color-lilac-soft: #3A314E;
+  --color-aqua: #7ED4CC;
+  --color-aqua-soft: #243E3C;
   --color-text: #F1F2FA;
   --color-text-muted: #A8ADC2;
   --color-border: #343952;
@@ -1442,6 +1470,13 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
 .habit-row[data-color-group="2"] { background: var(--color-peach-soft); }
 .habit-row[data-color-group="3"] { background: var(--color-yellow-soft); }
 .habit-row[data-color-group="4"] { background: var(--color-lavender-soft); }
+.habit-row[data-color-group="5"] { background: var(--color-sky-soft); }
+.habit-row[data-color-group="6"] { background: var(--color-rose-soft); }
+.habit-row[data-color-group="7"] { background: var(--color-sage-soft); }
+.habit-row[data-color-group="8"] { background: var(--color-coral-soft); }
+.habit-row[data-color-group="9"] { background: var(--color-sand-soft); }
+.habit-row[data-color-group="10"] { background: var(--color-lilac-soft); }
+.habit-row[data-color-group="11"] { background: var(--color-aqua-soft); }
 
 .habit-row:hover {
   box-shadow: 0 0 0 1px var(--color-border);
