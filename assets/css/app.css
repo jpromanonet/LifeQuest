@@ -1702,9 +1702,47 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
   background: color-mix(in srgb, var(--rules-accent-soft) 35%, transparent);
 }
 
-.rules-add-form input[type="text"]:focus {
+.rules-add-form {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--rules-accent) 22%, var(--color-border));
+  background: color-mix(in srgb, var(--rules-accent-soft) 40%, var(--color-surface));
+}
+
+.rules-add-form .weekly-add-main {
+  align-items: stretch;
+}
+
+.rules-add-form .weekly-add-main input[type="text"] {
+  border: 1px solid transparent;
+  background: var(--color-surface);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: none;
+}
+
+.rules-add-form .weekly-add-main input[type="text"]:focus {
   border-color: var(--rules-accent);
   outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rules-accent) 22%, transparent);
+}
+
+.rules-add-form .weekly-add-main .btn {
+  flex: 0 0 auto;
+  align-self: stretch;
+  padding-inline: 14px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .rules-add-form .weekly-add-main {
+    flex-direction: column;
+  }
+
+  .rules-add-form .weekly-add-main .btn {
+    width: 100%;
+  }
 }
 
 .habit-num.lg {

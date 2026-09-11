@@ -141,8 +141,10 @@ $currentPath = '/rules' . ($activeCat > 0 ? '?cat=' . $activeCat : '');
                     <?= route_field('/rules') ?>
                     <input type="hidden" name="redirect" value="<?= e($currentPath) ?>">
                     <input type="hidden" name="category_id" value="<?= $catId ?>">
-                    <input type="text" name="title" required maxlength="255" placeholder="Nueva regla…" aria-label="Nueva regla para <?= e((string) $category['name']) ?>">
-                    <button type="submit" class="btn btn-primary btn-sm">+ Agregar</button>
+                    <div class="weekly-add-main">
+                        <input type="text" name="title" required maxlength="255" placeholder="Nueva regla…" aria-label="Nueva regla para <?= e((string) $category['name']) ?>">
+                        <button type="submit" class="btn btn-primary btn-sm">Agregar</button>
+                    </div>
                 </form>
             </div>
         </section>
