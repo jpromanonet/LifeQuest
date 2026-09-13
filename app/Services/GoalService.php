@@ -439,16 +439,38 @@ final class GoalService
                 'area' => $area,
                 'goals' => $goalsByArea[(int) $area['id']] ?? [],
             ];
-            unset($byKey[$key]);
+            unset($byKey[$key], $goalsByArea[(int) $area['id']]);
         }
         foreach ($byKey as $area) {
             $ordered[] = [
                 'area' => $area,
                 'goals' => $goalsByArea[(int) $area['id']] ?? [],
             ];
+            unset($goalsByArea[(int) $area['id']]);
+        }
+        if (!empty($goalsByArea[0])) {
+            $ordered[] = [
+                'area' => self::unassignedArea(),
+                'goals' => $goalsByArea[0],
+            ];
         }
 
         return $ordered;
+    }
+
+    /**
+     * Área virtual para objetivos anuales (o de horizonte) sin life_area asignada.
+     *
+     * @return array{id:int,area_key:string,name:string,color:string}
+     */
+    public static function unassignedArea(): array
+    {
+        return [
+            'id' => 0,
+            'area_key' => 'sin_area',
+            'name' => 'Sin área',
+            'color' => '#1A1A1A',
+        ];
     }
 
     /**
@@ -507,12 +529,7 @@ final class GoalService
         }
         if (!empty($goalsByArea[0])) {
             $ordered[] = [
-                'area' => [
-                    'id' => 0,
-                    'area_key' => 'sin_area',
-                    'name' => 'Sin ?rea',
-                    'color' => '#64748B',
-                ],
+                'area' => self::unassignedArea(),
                 'goals' => $goalsByArea[0],
             ];
         }

@@ -67,13 +67,21 @@ final class GoalsController
             }
             $regrouped = [];
             foreach ($grouped as $section) {
-                $aid = (int) $section['area']['id'];
+                $aid = (int) ($section['area']['id'] ?? 0);
                 if (!isset($byArea[$aid])) {
                     continue;
                 }
                 $regrouped[] = [
                     'area' => $section['area'],
                     'goals' => $byArea[$aid],
+                ];
+                unset($byArea[$aid]);
+            }
+            // Objetivos filtrados sin área (por si el agrupado base no los traía).
+            if (!empty($byArea[0])) {
+                $regrouped[] = [
+                    'area' => GoalService::unassignedArea(),
+                    'goals' => $byArea[0],
                 ];
             }
             $grouped = $regrouped;
