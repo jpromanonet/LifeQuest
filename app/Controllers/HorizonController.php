@@ -27,9 +27,17 @@ final class HorizonController
         $areas = $this->listHorizonAreas($userId);
 
         $filters = [
-            'area_id' => (int) (input('area') ?: 0),
+            'area_id' => 0,
+            'area_key' => '',
             'done' => (string) (input('done') ?: ''),
         ];
+        $areaRaw = trim((string) (input('area') ?: ''));
+        if ($areaRaw === 'none' || $areaRaw === 'sin_area') {
+            $filters['area_id'] = 0;
+            $filters['area_key'] = 'sin_area';
+        } elseif ($areaRaw !== '' && ctype_digit($areaRaw)) {
+            $filters['area_id'] = (int) $areaRaw;
+        }
         if (!in_array($filters['done'], ['yes', 'no'], true)) {
             $filters['done'] = '';
         }
@@ -171,17 +179,25 @@ final class HorizonController
 
     /**
      * @param list<array{area:array,goals:list}> $grouped
-     * @param array{area_id:int,done:string} $filters
+     * @param array{area_id:int,area_key?:string,done:string} $filters
      * @return list<array{area:array,goals:list}>
      */
     private function applyFilters(array $grouped, array $filters): array
     {
         $areaId = (int) ($filters['area_id'] ?? 0);
+        $areaKey = (string) ($filters['area_key'] ?? '');
         $done = (string) ($filters['done'] ?? '');
         $out = [];
+        $filterUnassigned = $areaKey === 'sin_area';
+        $filterActive = $filterUnassigned || $areaId > 0 || $done !== '';
 
         foreach ($grouped as $section) {
-            if ($areaId > 0 && (int) ($section['area']['id'] ?? 0) !== $areaId) {
+            $sectionAreaId = (int) ($section['area']['id'] ?? 0);
+            $sectionAreaKey = (string) ($section['area']['area_key'] ?? '');
+            if ($filterUnassigned && $sectionAreaKey !== 'sin_area' && $sectionAreaId !== 0) {
+                continue;
+            }
+            if (!$filterUnassigned && $areaId > 0 && $sectionAreaId !== $areaId) {
                 continue;
             }
 
@@ -194,8 +210,7 @@ final class HorizonController
                 ));
             }
 
-            if ($goals === [] && ($areaId > 0 || $done !== '')) {
-                // Con filtro activo, ocultar secciones vacías.
+            if ($goals === [] && $filterActive) {
                 continue;
             }
 
@@ -211,10 +226,12 @@ final class HorizonController
     private function horizonReturnPath(): string
     {
         $params = [];
-        $area = (int) (input('filter_area') ?: input('area') ?: 0);
+        $area = trim((string) (input('filter_area') ?: input('area') ?: ''));
         $done = (string) (input('filter_done') ?: input('done') ?: '');
-        if ($area > 0) {
-            $params['area'] = $area;
+        if ($area === 'none' || $area === 'sin_area') {
+            $params['area'] = 'none';
+        } elseif ($area !== '' && ctype_digit($area) && (int) $area > 0) {
+            $params['area'] = (int) $area;
         }
         if (in_array($done, ['yes', 'no'], true)) {
             $params['done'] = $done;

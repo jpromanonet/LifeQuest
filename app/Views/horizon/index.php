@@ -5,8 +5,10 @@
 /** @var array<string,int> $totals */
 /** @var array{area_id:int,done:string} $filters */
 
-$filters = $filters ?? ['area_id' => 0, 'done' => ''];
-$hasFilters = ((int) ($filters['area_id'] ?? 0) > 0) || (($filters['done'] ?? '') !== '');
+$filters = $filters ?? ['area_id' => 0, 'area_key' => '', 'done' => ''];
+$hasFilters = ((int) ($filters['area_id'] ?? 0) > 0)
+    || (($filters['area_key'] ?? '') === 'sin_area')
+    || (($filters['done'] ?? '') !== '');
 
 $horizonDone = static function (array $goal): bool {
     return (float) ($goal['progress_percent'] ?? 0) >= 100 || ($goal['status'] ?? '') === 'completed';
@@ -60,6 +62,7 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
         <span class="sr-only">Área</span>
         <select name="area" onchange="this.form.submit()" aria-label="Filtrar por área">
             <option value="">Todas las áreas</option>
+            <option value="none" <?= ($filters['area_key'] ?? '') === 'sin_area' ? 'selected' : '' ?>>Sin área</option>
             <?php foreach ($areas as $area): ?>
                 <option value="<?= (int) $area['id'] ?>" <?= (int) ($filters['area_id'] ?? 0) === (int) $area['id'] ? 'selected' : '' ?>>
                     <?= e((string) $area['name']) ?>
@@ -169,7 +172,7 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
     <form method="post" id="horizonEditForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>
         <input type="hidden" name="r" id="horizonEditRoute" value="/horizon/0">
-        <input type="hidden" name="filter_area" value="<?= (int) ($filters['area_id'] ?? 0) ?>">
+        <input type="hidden" name="filter_area" value="<?= e(($filters['area_key'] ?? '') === 'sin_area' ? 'none' : (string) ((int) ($filters['area_id'] ?? 0) ?: '')) ?>">
         <input type="hidden" name="filter_done" value="<?= e((string) ($filters['done'] ?? '')) ?>">
         <header class="modal-head">
             <h2>Editar horizonte</h2>
@@ -181,7 +184,8 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
         </label>
         <label class="field">
             <span>Área de horizonte</span>
-            <select name="area_id" id="horizonEditAreaId" required>
+            <select name="area_id" id="horizonEditAreaId">
+                <option value="">Sin área</option>
                 <?php foreach ($areas as $area): ?>
                     <option value="<?= (int) $area['id'] ?>"><?= e((string) $area['name']) ?></option>
                 <?php endforeach; ?>
@@ -222,7 +226,7 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
     <form method="post" id="horizonDeleteForm" action="<?= e(form_action()) ?>" hidden data-lq-save>
         <?= csrf_field() ?>
         <input type="hidden" name="r" id="horizonDeleteRoute" value="/horizon/0/delete">
-        <input type="hidden" name="filter_area" value="<?= (int) ($filters['area_id'] ?? 0) ?>">
+        <input type="hidden" name="filter_area" value="<?= e(($filters['area_key'] ?? '') === 'sin_area' ? 'none' : (string) ((int) ($filters['area_id'] ?? 0) ?: '')) ?>">
         <input type="hidden" name="filter_done" value="<?= e((string) ($filters['done'] ?? '')) ?>">
     </form>
     <form method="post" id="horizonBinaryToggleForm" action="<?= e(form_action()) ?>" hidden>
@@ -235,7 +239,7 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
     <form method="post" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>
         <?= route_field('/horizon') ?>
-        <input type="hidden" name="filter_area" value="<?= (int) ($filters['area_id'] ?? 0) ?>">
+        <input type="hidden" name="filter_area" value="<?= e(($filters['area_key'] ?? '') === 'sin_area' ? 'none' : (string) ((int) ($filters['area_id'] ?? 0) ?: '')) ?>">
         <input type="hidden" name="filter_done" value="<?= e((string) ($filters['done'] ?? '')) ?>">
         <header class="modal-head">
             <h2>Nuevo horizonte</h2>
@@ -247,7 +251,8 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
         </label>
         <label class="field">
             <span>Área de horizonte</span>
-            <select name="area_id" required>
+            <select name="area_id">
+                <option value="">Sin área</option>
                 <?php foreach ($areas as $area): ?>
                     <option value="<?= (int) $area['id'] ?>"><?= e((string) $area['name']) ?></option>
                 <?php endforeach; ?>
