@@ -1,13 +1,31 @@
 <?php
 /** @var list<array> $habits */
 /** @var array|null $selected */
-/** @var list<array> $areas */
 /** @var string $todayDate */
+/** @var string $habitDate */
+/** @var bool $isHabitToday */
+/** @var list<array{date:string,label:string,is_today:bool}> $habitWeekDays */
 /** @var array<int,string> $monthLabels */
 /** @var int $habitYear */
 
 $monthLabels = $monthLabels ?? MonthProgress::MONTH_LABELS;
 $habitYear = $habitYear ?? (int) date('Y');
+$habitDate = $habitDate ?? $todayDate;
+$isHabitToday = $isHabitToday ?? true;
+$habitWeekDays = $habitWeekDays ?? [];
+$habitPrevWeek = $habitPrevWeek ?? $habitDate;
+$habitNextWeek = $habitNextWeek ?? $habitDate;
+$canGoNextHabitWeek = $canGoNextHabitWeek ?? false;
+$isCurrentHabitWeek = $isCurrentHabitWeek ?? true;
+$habitReturnPath = $habitReturnPath ?? '/habits';
+$realTodayDate = $todayDate;
+
+$habitDayUrl = static function (string $date) use ($realTodayDate): string {
+    if ($date === '' || $date === $realTodayDate) {
+        return url('/habits');
+    }
+    return url('/habits?' . http_build_query(['date' => $date]));
+};
 ?>
 <section class="page-header with-actions">
     <div>
@@ -18,6 +36,30 @@ $habitYear = $habitYear ?? (int) date('Y');
 </section>
 
 <div class="card">
+    <div class="habit-day-bar">
+        <label class="habit-day-select-wrap" for="habitDaySelect">
+            <span class="muted small">Día</span>
+            <select id="habitDaySelect" class="habit-day-select" aria-label="Elegir día de la semana">
+                <?php foreach ($habitWeekDays as $day): ?>
+                    <option
+                        value="<?= e($habitDayUrl((string) $day['date'])) ?>"
+                        <?= ((string) $day['date'] === $habitDate) ? 'selected' : '' ?>
+                    >
+                        <?= e((string) $day['label']) ?><?= !empty($day['is_today']) ? ' · hoy' : '' ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <div class="btn-row habit-week-nav">
+            <a class="btn btn-ghost btn-sm" href="<?= e($habitDayUrl($habitPrevWeek)) ?>" title="Semana anterior">←</a>
+            <?php if (!$isCurrentHabitWeek || !$isHabitToday): ?>
+                <a class="btn btn-ghost btn-sm" href="<?= e(url('/habits')) ?>">Hoy</a>
+            <?php endif; ?>
+            <?php if ($canGoNextHabitWeek): ?>
+                <a class="btn btn-ghost btn-sm" href="<?= e($habitDayUrl($habitNextWeek)) ?>" title="Semana siguiente">→</a>
+            <?php endif; ?>
+        </div>
+    </div>
     <ul class="habit-list habit-list-full">
         <?php if ($habits === []): ?>
             <li class="empty-state">Todavía no tenés hábitos activos.</li>
@@ -52,7 +94,6 @@ $habitYear = $habitYear ?? (int) date('Y');
                 data-id="<?= (int) $habit['id'] ?>"
                 data-name="<?= e((string) $habit['name']) ?>"
                 data-description="<?= e((string) ($habit['description'] ?? '')) ?>"
-                data-area-id="<?= e((string) ($habit['area_id'] ?? '')) ?>"
                 data-tracking-mode="<?= e($mode) ?>"
                 data-target="<?= e((string) (float) ($habit['target_per_period'] ?? 12)) ?>"
                 data-current="<?= e((string) (float) ($habit['current_value'] ?? 0)) ?>"
@@ -74,7 +115,7 @@ $habitYear = $habitYear ?? (int) date('Y');
                         <?= e((string) $habit['name']) ?>
                         <?php if ($isSystem): ?><span class="habit-system-badge">Sistema</span><?php endif; ?>
                         <?php if ($friend && ($habit['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND): ?>
-                            <span class="habit-friend-hint">Hoy: <?= e((string) $friend['name']) ?></span>
+                            <span class="habit-friend-hint"><?= $isHabitToday ? 'Hoy' : 'Ese día' ?>: <?= e((string) $friend['name']) ?></span>
                         <?php endif; ?>
                     </span>
                     <span class="muted small">
@@ -88,16 +129,26 @@ $habitYear = $habitYear ?? (int) date('Y');
                         <?php elseif ($mode === 'months'): ?>
                             Meses · <?= e(number_format((float) ($habit['progress_percent'] ?? 0), 0)) ?>%
                         <?php else: ?>
-                            <?= e((string) ($habit['area_name'] ?? $habit['frequency_type'] ?? '')) ?>
+                            <?= e(match ((string) ($habit['frequency_type'] ?? 'daily')) {
+                                'weekdays' => 'Días hábiles',
+                                'custom_days' => 'Días personalizados',
+                                'weekly' => 'Semanal',
+                                'monthly' => 'Mensual',
+                                default => 'Diario',
+                            }) ?>
                         <?php endif; ?>
                     </span>
                 </span>
                 <?php if ($isFruit):
-                    $returnPath = '/habits';
+                    $returnPath = $habitReturnPath;
+                    $todayDate = $habitDate;
                     include dirname(__DIR__) . '/partials/habit_fruit.php';
+                    $todayDate = $realTodayDate;
                 elseif ($isWater || $isQty):
-                    $returnPath = '/habits';
+                    $returnPath = $habitReturnPath;
+                    $todayDate = $habitDate;
                     include dirname(__DIR__) . '/partials/habit_water.php';
+                    $todayDate = $realTodayDate;
                 elseif ($mode === 'units'): ?>
                     <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-lq-save onclick="event.stopPropagation()">
                         <?= csrf_field() ?>
@@ -113,14 +164,14 @@ $habitYear = $habitYear ?? (int) date('Y');
                     <?= csrf_field() ?>
                     <?= route_field('/habits/log') ?>
                     <input type="hidden" name="habit_id" value="<?= (int) $habit['id'] ?>">
-                    <input type="hidden" name="date" value="<?= e($todayDate) ?>">
+                    <input type="hidden" name="date" value="<?= e($habitDate) ?>">
                     <input type="hidden" name="status" value="<?= $done ? 'missed' : 'completed' ?>">
-                    <input type="hidden" name="redirect" value="/habits">
+                    <input type="hidden" name="redirect" value="<?= e($habitReturnPath) ?>">
                     <?php if ($friend): ?>
                         <input type="hidden" name="friend_id" value="<?= (int) $friend['id'] ?>">
                     <?php endif; ?>
-                    <label class="check-toggle" title="Marcar hecho hoy">
-                        <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $habit['name']) ?> hoy">
+                    <label class="check-toggle" title="<?= $isHabitToday ? 'Marcar hecho hoy' : 'Marcar hecho ese día' ?>">
+                        <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $habit['name']) ?>">
                         <span></span>
                     </label>
                 </form>
@@ -147,7 +198,6 @@ $habitYear = $habitYear ?? (int) date('Y');
         data-id="<?= (int) $selected['id'] ?>"
         data-name="<?= e((string) $selected['name']) ?>"
         data-description="<?= e((string) ($selected['description'] ?? '')) ?>"
-        data-area-id="<?= e((string) ($selected['area_id'] ?? '')) ?>"
         data-tracking-mode="<?= e($selMode) ?>"
         data-target="<?= e((string) (float) ($selected['target_per_period'] ?? 12)) ?>"
         data-current="<?= e((string) (float) ($selected['current_value'] ?? 0)) ?>"
@@ -166,15 +216,6 @@ $habitYear = $habitYear ?? (int) date('Y');
         </header>
         <label class="field"><span>Nombre</span><input type="text" name="name" id="habitEditName" required maxlength="160"></label>
         <label class="field"><span>Descripción</span><textarea name="description" id="habitEditDescription" rows="2"></textarea></label>
-        <label class="field">
-            <span>Área</span>
-            <select name="area_id" id="habitEditAreaId">
-                <option value="">Sin área</option>
-                <?php foreach ($areas as $area): ?>
-                    <option value="<?= (int) $area['id'] ?>"><?= e((string) $area['name']) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </label>
         <label class="field">
             <span>Medición</span>
             <select name="tracking_mode" id="habitEditTrackingMode">
@@ -294,27 +335,16 @@ $habitYear = $habitYear ?? (int) date('Y');
                 <input type="text" name="unit" value="libros" placeholder="libros, km…">
             </label>
         </div>
-        <div class="form-grid-2">
-            <label class="field">
-                <span>Área</span>
-                <select name="area_id">
-                    <option value="">Sin área</option>
-                    <?php foreach ($areas as $area): ?>
-                        <option value="<?= (int) $area['id'] ?>"><?= e((string) $area['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label class="field">
-                <span>Frecuencia (si es diario)</span>
-                <select name="frequency_type">
-                    <option value="daily">Diario</option>
-                    <option value="weekdays">Días hábiles</option>
-                    <option value="custom_days">Días personalizados</option>
-                    <option value="weekly">Semanal</option>
-                    <option value="monthly">Mensual</option>
-                </select>
-            </label>
-        </div>
+        <label class="field">
+            <span>Frecuencia (si es diario)</span>
+            <select name="frequency_type">
+                <option value="daily">Diario</option>
+                <option value="weekdays">Días hábiles</option>
+                <option value="custom_days">Días personalizados</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+            </select>
+        </label>
         <footer class="modal-foot">
             <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
             <button type="submit" class="btn btn-primary">Crear</button>

@@ -128,6 +128,7 @@ final class GoalsController
             'selectedMilestones' => $selectedMilestones,
             'selectedActions' => $selectedActions,
             'monthLabels' => MonthProgress::MONTH_LABELS,
+            'repeatYearOptions' => $this->repeatYearOptions($year, $this->plans->years($userId)),
             'flashSuccess' => flash('success'),
             'flashError' => flash('error'),
         ]);
@@ -185,7 +186,12 @@ final class GoalsController
             $this->normalizeProgress($userId, $id, (string) ($data['progress_mode'] ?? 'months'));
             $this->audit->log($userId, 'goal.create', 'goal', $id, ['title' => $data['title'] ?? null]);
             $year = (int) ($data['period_year'] ?? now_local()->format('Y'));
-            respond_saved('Objetivo creado.', '/goals?year=' . $year);
+            $copied = $this->replicateGoalToYears(
+                $userId,
+                $id,
+                $this->repeatYearsFromRequest($year, $this->plans->years($userId))
+            );
+            respond_saved($this->repeatSavedMessage('Objetivo creado.', $copied), '/goals?year=' . $year);
         } catch (Throwable $e) {
             $msg = 'No se pudo crear el objetivo.';
             if ((bool) app_config('debug', false)) {
@@ -211,7 +217,12 @@ final class GoalsController
             $this->normalizeProgress($userId, $goalId, (string) ($data['progress_mode'] ?? 'months'));
             $this->audit->log($userId, 'goal.update', 'goal', $goalId);
             $year = (int) ($data['period_year'] ?? now_local()->format('Y'));
-            respond_saved('Objetivo actualizado.', '/goals?year=' . $year);
+            $copied = $this->replicateGoalToYears(
+                $userId,
+                $goalId,
+                $this->repeatYearsFromRequest($year, $this->plans->years($userId))
+            );
+            respond_saved($this->repeatSavedMessage('Objetivo actualizado.', $copied), '/goals?year=' . $year);
         } catch (Throwable $e) {
             $msg = 'No se pudo actualizar el objetivo.';
             if ((bool) app_config('debug', false)) {
@@ -476,8 +487,11 @@ final class GoalsController
             'next_action' => input('next_action'),
             'external_system' => input('external_system'),
             'external_url' => input('external_url'),
-            'goal_key' => input('goal_key') ?: null,
         ];
+        $goalKey = input('goal_key');
+        if ($goalKey !== null && $goalKey !== '') {
+            $data['goal_key'] = (string) $goalKey;
+        }
 
         if ($mode === 'quantity') {
             $target = input('target_value');
@@ -523,6 +537,101 @@ final class GoalsController
         );
         $stmt->execute(['user_id' => $userId, 'scope' => $scope]);
         return $stmt->fetchAll();
+    }
+
+    /** @return list<int> */
+    private function repeatYearOptions(int $baseYear, array $availableYears): array
+    {
+        $years = [];
+        foreach ($availableYears as $y) {
+            $y = (int) $y;
+            if ($y > $baseYear && $y >= 2000 && $y <= 2040) {
+                $years[$y] = $y;
+            }
+        }
+        $list = array_values($years);
+        sort($list);
+        return $list;
+    }
+
+    /** @return list<int> */
+    private function repeatYearsFromRequest(int $baseYear, array $availableYears = []): array
+    {
+        $raw = input('repeat_years', []);
+        if (!is_array($raw)) {
+            $raw = $raw !== null && $raw !== '' ? [$raw] : [];
+        }
+        $allowed = [];
+        foreach ($availableYears as $y) {
+            $y = (int) $y;
+            if ($y > $baseYear) {
+                $allowed[$y] = $y;
+            }
+        }
+        if ($allowed === []) {
+            return [];
+        }
+        $years = [];
+        foreach ($raw as $value) {
+            if ((string) $value === 'all') {
+                return array_values($allowed);
+            }
+            $y = (int) $value;
+            if (isset($allowed[$y])) {
+                $years[$y] = $y;
+            }
+        }
+        $list = array_values($years);
+        sort($list);
+        return $list;
+    }
+
+    /**
+     * @param list<int> $years
+     * @return list<int> años donde se creó una copia
+     */
+    private function replicateGoalToYears(int $userId, int $sourceId, array $years): array
+    {
+        if ($years === []) {
+            return [];
+        }
+        $source = $this->goals->find($userId, $sourceId);
+        if ($source === null) {
+            return [];
+        }
+        $sourceKey = (string) ($source['goal_key'] ?? '');
+        if (str_starts_with($sourceKey, 'books_')) {
+            return [];
+        }
+
+        $seriesId = $this->goals->ensureSeries($userId, $source);
+        $copied = [];
+        foreach ($years as $year) {
+            if ($this->goals->seriesHasYear($userId, $seriesId, $year)) {
+                continue;
+            }
+            $this->plans->ensureYear($userId, $year);
+            $copyId = $this->goals->copyToYear($userId, $source, $year, $seriesId);
+            $this->normalizeProgress($userId, $copyId, (string) ($source['progress_mode'] ?? 'months'));
+            $this->audit->log($userId, 'goal.repeat', 'goal', $copyId, [
+                'source_id' => $sourceId,
+                'year' => $year,
+            ]);
+            $copied[] = $year;
+        }
+        return $copied;
+    }
+
+    /** @param list<int> $copied */
+    private function repeatSavedMessage(string $base, array $copied): string
+    {
+        if ($copied === []) {
+            return $base;
+        }
+        $list = implode(', ', $copied);
+        return count($copied) === 1
+            ? rtrim($base, '.') . ' y copiado a ' . $list . '.'
+            : rtrim($base, '.') . ' y copiado a ' . $list . '.';
     }
 
     private function wantsJson(): bool

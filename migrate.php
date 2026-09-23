@@ -214,6 +214,13 @@ try {
         $seeded++;
     }
     $messages[] = 'Hábitos imborrables asegurados en ' . $seeded . ' usuario(s).';
+
+    $cleared = $pdo->exec('UPDATE habits SET area_id = NULL WHERE area_id IS NOT NULL');
+    if ($cleared !== false && $cleared > 0) {
+        $messages[] = 'Áreas desvinculadas de ' . $cleared . ' hábito(s).';
+    } else {
+        $messages[] = 'Hábitos sin área (ya limpios).';
+    }
 } catch (Throwable $e) {
     $error = $e->getMessage();
 }

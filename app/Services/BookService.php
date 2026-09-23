@@ -229,8 +229,9 @@ final class BookService
         $goalKey = 'books_' . $year;
 
         $find = $pdo->prepare(
-            'SELECT id, target_value FROM goals
-             WHERE user_id = :uid AND goal_key = :key AND deleted_at IS NULL LIMIT 1'
+            'SELECT id, target_value, deleted_at FROM goals
+             WHERE user_id = :uid AND goal_key = :key
+             LIMIT 1'
         );
         $find->execute(['uid' => $userId, 'key' => $goalKey]);
         $existing = $find->fetch();
@@ -259,7 +260,8 @@ final class BookService
                     due_date = :due_date,
                     completed_at = :completed_at,
                     external_system = :source,
-                    external_url = :url
+                    external_url = :url,
+                    deleted_at = NULL
                  WHERE id = :id AND user_id = :uid'
             )->execute([
                 'title' => $title,

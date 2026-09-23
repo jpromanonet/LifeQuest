@@ -7,6 +7,7 @@
 /** @var int $atRisk */
 /** @var list<array> $areas */
 /** @var array|null $selected */
+/** @var list<int> $repeatYearOptions */
 
 $activeCount = (int) ($counts['active'] ?? 0);
 $completedCount = (int) ($counts['completed'] ?? 0);
@@ -320,6 +321,7 @@ $nextYear = $later !== [] ? min($later) : null;
                 <input type="number" name="target_value" min="1" step="1" value="12">
             </label>
         </div>
+        <?php include dirname(__DIR__) . '/partials/goal_repeat_years.php'; ?>
         <footer class="modal-foot">
             <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
             <button type="submit" class="btn btn-primary">Crear</button>
@@ -488,6 +490,7 @@ $nextYear = $later !== [] ? min($later) : null;
             <span>Criterio de éxito</span>
             <textarea name="success_criteria" id="editSuccessCriteria" rows="2"></textarea>
         </label>
+        <?php include dirname(__DIR__) . '/partials/goal_repeat_years.php'; ?>
         <footer class="modal-foot modal-foot-split">
             <button type="submit" form="goalDeleteForm" class="btn btn-danger" onclick="return confirm('¿Eliminar este objetivo?');">Eliminar</button>
             <div class="btn-row">

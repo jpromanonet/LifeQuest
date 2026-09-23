@@ -142,7 +142,7 @@ final class AreaService
     }
 
     /**
-     * Ensure the 6 annual + 6 horizon areas exist, remap legacy annual goals/habits,
+     * Ensure the 6 annual + 6 horizon areas exist, remap legacy annual goals,
      * soft-delete obsolete annual areas, refresh annual sections.
      */
     public function ensureCanonicalAreas(int $userId): void
@@ -216,7 +216,7 @@ final class AreaService
             $ids[$row['area_key']] = (int) $row['id'];
         }
 
-        // Remap goals/habits from legacy annual areas
+        // Remap goals from legacy annual areas. Habits no longer use areas.
         $updGoal = $pdo->prepare(
             'UPDATE goals SET area_id = :new_id
              WHERE user_id = :uid AND area_id = :old_id AND deleted_at IS NULL'
@@ -224,10 +224,6 @@ final class AreaService
         $updImpact = $pdo->prepare(
             'UPDATE goals SET impact_area_id = :new_id
              WHERE user_id = :uid AND impact_area_id = :old_id AND deleted_at IS NULL'
-        );
-        $updHabit = $pdo->prepare(
-            'UPDATE habits SET area_id = :new_id
-             WHERE user_id = :uid AND area_id = :old_id AND deleted_at IS NULL'
         );
 
         foreach (self::LEGACY_ANNUAL_MAP as $oldKey => $newKey) {
@@ -241,8 +237,12 @@ final class AreaService
             }
             $updGoal->execute(['new_id' => $newId, 'uid' => $userId, 'old_id' => $oldId]);
             $updImpact->execute(['new_id' => $newId, 'uid' => $userId, 'old_id' => $oldId]);
-            $updHabit->execute(['new_id' => $newId, 'uid' => $userId, 'old_id' => $oldId]);
         }
+
+        $pdo->prepare(
+            'UPDATE habits SET area_id = NULL
+             WHERE user_id = :uid AND area_id IS NOT NULL AND deleted_at IS NULL'
+        )->execute(['uid' => $userId]);
 
         // Soft-delete obsolete annual areas (legacy keys)
         $legacyKeys = array_keys(self::LEGACY_ANNUAL_MAP);

@@ -50,7 +50,7 @@ final class SeedService
                 $report['goals'] += self::seedAnnualGoals($pdo, $userId, $areaIds, $years[$slot], $goals);
             }
 
-            $report['habits'] = self::seedHabits($pdo, $userId, $areaIds, $manifest['habits']);
+            $report['habits'] = self::seedHabits($pdo, $userId, $manifest['habits']);
 
             self::linkPatrium($pdo, $userId);
 
@@ -211,7 +211,7 @@ final class SeedService
         return $count;
     }
 
-    private static function seedHabits(PDO $pdo, int $userId, array $areaIds, array $habits): int
+    private static function seedHabits(PDO $pdo, int $userId, array $habits): int
     {
         $count = 0;
         foreach ($habits as $h) {
@@ -219,7 +219,7 @@ final class SeedService
                 'habit_key' => $h['key'],
                 'display_number' => $h['number'] ?? null,
                 'name' => $h['name'],
-                'area_id' => $areaIds[$h['area']] ?? null,
+                'area_id' => null,
                 'frequency_type' => $h['frequency'] ?? 'daily',
                 'target_per_period' => $h['target'] ?? 1,
                 'unit' => $h['unit'] ?? 'vez',

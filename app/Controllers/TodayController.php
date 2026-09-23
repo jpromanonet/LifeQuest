@@ -10,13 +10,14 @@ final class TodayController
         $userId = Auth::id();
         $user = Auth::user();
         $now = now_local();
+        $todayYmd = $now->format('Y-m-d');
 
         $habits = new HabitService();
         $metrics = new MetricsService($habits);
 
         $habits->ensureSystemHabits($userId);
-        $todayHabits = $habits->todayHabits($userId);
-        $suggestedFriend = (new FriendService())->nextSuggestion($userId, $now->format('Y-m-d'));
+        $todayHabits = $habits->todayHabits($userId, $todayYmd);
+        $suggestedFriend = (new FriendService())->nextSuggestion($userId, $todayYmd);
         foreach ($todayHabits as &$th) {
             if (($th['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND) {
                 $th['suggested_friend'] = $suggestedFriend;
@@ -26,16 +27,9 @@ final class TodayController
         $overview = $metrics->overview($userId, ['year' => (int) $now->format('Y')]);
         $yearProgress = $this->yearProgress($now);
 
-        $doneToday = 0;
-        foreach ($todayHabits as $habit) {
-            $status = $habit['log_status'] ?? null;
-            if ($status === 'completed' || $status === 'partial') {
-                $doneToday++;
-            }
-        }
+        $habitsDone = $this->countDoneHabits($todayHabits);
         $habitsTotal = count($todayHabits);
 
-        $weekLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
         $weeklyChart = $this->weeklyHabitStackChart($userId, $now, $habits);
 
         $elapsed = (float) $yearProgress['percent'];
@@ -64,7 +58,7 @@ final class TodayController
 
         $weekly = new WeeklyPlanService();
         $weekBoard = $weekly->weekBoard($userId, $now);
-        $todayDate = $now->format('Y-m-d');
+        $todayDate = $todayYmd;
         $todayTasks = [];
         foreach ($weekBoard as $day) {
             if ((string) ($day['date'] ?? '') === $todayDate) {
@@ -95,7 +89,7 @@ final class TodayController
             'todayLabel' => $this->formatSpanishDate($now),
             'todayHabits' => $todayHabits,
             'overview' => $overview,
-            'habitsDone' => $doneToday,
+            'habitsDone' => $habitsDone,
             'habitsTotal' => $habitsTotal,
             'weeklyChart' => $weeklyChart,
             'yearProgress' => $yearProgress,
@@ -118,6 +112,29 @@ final class TodayController
             ],
             'dueMilestones' => (new MilestoneService())->pendingDue($userId, $todayDate),
         ]);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $habits
+     */
+    private function countDoneHabits(array $habits): int
+    {
+        $done = 0;
+        foreach ($habits as $habit) {
+            $status = $habit['log_status'] ?? null;
+            $isQty = (($habit['habit_key'] ?? '') === HabitService::KEY_WATER)
+                || (($habit['habit_key'] ?? '') === HabitService::KEY_FRUIT)
+                || (($habit['tracking_mode'] ?? '') === 'daily_qty');
+            if ($isQty) {
+                $target = (float) ($habit['target_per_period'] ?? (($habit['habit_key'] ?? '') === HabitService::KEY_FRUIT ? 3 : 2000));
+                if ((float) ($habit['log_quantity'] ?? 0) + 0.0001 >= $target) {
+                    $done++;
+                }
+            } elseif ($status === 'completed' || $status === 'partial') {
+                $done++;
+            }
+        }
+        return $done;
     }
 
     /**
@@ -150,6 +167,13 @@ final class TodayController
                 ];
                 $done = ($habit['log_status'] ?? null) === 'completed'
                     || ($habit['log_status'] ?? null) === 'partial';
+                $isQty = (($habit['habit_key'] ?? '') === HabitService::KEY_WATER)
+                    || (($habit['habit_key'] ?? '') === HabitService::KEY_FRUIT)
+                    || (($habit['tracking_mode'] ?? '') === 'daily_qty');
+                if ($isQty) {
+                    $target = (float) ($habit['target_per_period'] ?? (($habit['habit_key'] ?? '') === HabitService::KEY_FRUIT ? 3 : 2000));
+                    $done = (float) ($habit['log_quantity'] ?? 0) + 0.0001 >= $target;
+                }
                 $dayMap[$id] = $done ? $share : 0.0;
             }
             $perDay[] = $dayMap;

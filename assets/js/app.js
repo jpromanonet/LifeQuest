@@ -213,6 +213,18 @@
     initDailyQty();
   }
 
+  function initHabitDaySelect() {
+    var sel = document.getElementById('habitDaySelect');
+    if (!sel) {
+      return;
+    }
+    sel.addEventListener('change', function () {
+      if (sel.value) {
+        window.location.href = sel.value;
+      }
+    });
+  }
+
   function initHabitToggles() {
     document.querySelectorAll('[data-habit-toggle]').forEach(function (form) {
       var checkbox = form.querySelector('input[type="checkbox"]');
@@ -247,6 +259,9 @@
             var row = form.closest('.habit-row');
             if (row) {
               row.classList.toggle('is-done', checkbox.checked);
+            }
+            if (document.getElementById('weekChart')) {
+              window.location.reload();
             }
           })
           .catch(function () {
@@ -1384,7 +1399,6 @@
       var map = {
         habitEditName: 'data-name',
         habitEditDescription: 'data-description',
-        habitEditAreaId: 'data-area-id',
         habitEditTrackingMode: 'data-tracking-mode',
         habitEditTarget: 'data-target',
         habitEditUnit: 'data-unit',
@@ -2422,6 +2436,7 @@
     initTheme();
     initThemeToggle();
     initHabitToggles();
+    initHabitDaySelect();
     initWaterQty();
     initTaskToggles();
     initWeeklyTaskModal();

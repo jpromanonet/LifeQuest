@@ -900,4 +900,114 @@ final class GoalService
 
         return ['done' => $done, 'percent' => $percent, 'status' => $status];
     }
+
+    /**
+     * Crea (o reutiliza) una serie para vincular copias del mismo objetivo en distintos años.
+     */
+    public function ensureSeries(int $userId, array $goal): int
+    {
+        if (!empty($goal['series_id'])) {
+            return (int) $goal['series_id'];
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'INSERT INTO goal_series (user_id, series_key, title_template, area_id, target_value, unit)
+             VALUES (:uid, :key, :title, :area_id, :target, :unit)'
+        );
+        $stmt->execute([
+            'uid' => $userId,
+            'key' => 'rpt_' . $userId . '_' . (int) ($goal['id'] ?? 0) . '_' . bin2hex(random_bytes(4)),
+            'title' => (string) ($goal['title'] ?? ''),
+            'area_id' => $goal['area_id'] ?? null,
+            'target' => $goal['target_value'] ?? null,
+            'unit' => $goal['unit'] ?? null,
+        ]);
+        $seriesId = (int) Database::pdo()->lastInsertId();
+
+        if (!empty($goal['id'])) {
+            Database::pdo()->prepare(
+                'UPDATE goals SET series_id = :sid WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
+            )->execute([
+                'sid' => $seriesId,
+                'id' => (int) $goal['id'],
+                'uid' => $userId,
+            ]);
+        }
+
+        return $seriesId;
+    }
+
+    public function seriesHasYear(int $userId, int $seriesId, int $year): bool
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT id FROM goals
+             WHERE user_id = :uid AND series_id = :sid AND period_year = :year
+               AND deleted_at IS NULL
+             LIMIT 1'
+        );
+        $stmt->execute(['uid' => $userId, 'sid' => $seriesId, 'year' => $year]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * Copia un objetivo anual a otro año, sin progreso ni meses tildados.
+     */
+    public function copyToYear(int $userId, array $source, int $year, int $seriesId): int
+    {
+        $baseYear = (int) ($source['period_year'] ?? $year);
+        $mode = (string) ($source['progress_mode'] ?? 'months');
+        $status = (string) ($source['status'] ?? 'planned');
+        if (in_array($status, ['completed', 'cancelled', 'archived'], true)) {
+            $status = 'planned';
+        }
+
+        return $this->create($userId, [
+            'goal_key' => null,
+            'title' => $source['title'] ?? '',
+            'description' => $source['description'] ?? null,
+            'goal_type' => $source['goal_type'] ?? 'goal',
+            'area_id' => $source['area_id'] ?? null,
+            'impact_area_id' => $source['impact_area_id'] ?? null,
+            'series_id' => $seriesId,
+            'horizon' => $source['horizon'] ?? 'anual',
+            'period_year' => $year,
+            'status' => $status,
+            'priority' => $source['priority'] ?? 'medium',
+            'progress_mode' => $mode,
+            'progress_percent' => 0,
+            'target_value' => $source['target_value'] ?? null,
+            'current_value' => $mode === 'quantity' ? 0 : null,
+            'unit' => $source['unit'] ?? null,
+            'start_date' => $this->shiftDateYear($source['start_date'] ?? null, $baseYear, $year),
+            'due_date' => $this->shiftDateYear($source['due_date'] ?? null, $baseYear, $year),
+            'success_criteria' => $source['success_criteria'] ?? null,
+            'motivation' => $source['motivation'] ?? null,
+            'next_action' => $source['next_action'] ?? null,
+            'external_system' => $source['external_system'] ?? null,
+            'external_url' => $source['external_url'] ?? null,
+        ]);
+    }
+
+    private function shiftDateYear(mixed $date, int $fromYear, int $toYear): ?string
+    {
+        if ($date === null || $date === '') {
+            return null;
+        }
+        try {
+            $dt = new DateTimeImmutable((string) $date);
+        } catch (Throwable) {
+            return null;
+        }
+        $delta = $toYear - $fromYear;
+        if ($delta === 0) {
+            return $dt->format('Y-m-d');
+        }
+        $month = (int) $dt->format('n');
+        $day = (int) $dt->format('j');
+        $newYear = (int) $dt->format('Y') + $delta;
+        if (!checkdate($month, $day, $newYear)) {
+            $day = (int) (new DateTimeImmutable(sprintf('%04d-%02d-01', $newYear, $month)))->format('t');
+        }
+        return sprintf('%04d-%02d-%02d', $newYear, $month, $day);
+    }
 }

@@ -18,14 +18,49 @@ final class HabitsController
         Auth::requireLogin();
         $userId = Auth::id();
         $this->habits->ensureSystemHabits($userId);
-        $list = $this->habits->listActive($userId);
-        $suggestedFriend = (new FriendService())->nextSuggestion($userId);
-        $today = now_local()->format('Y-m-d');
-        $logsToday = $this->habits->logsForDate($userId, $today);
 
-        $habitYear = (int) now_local()->format('Y');
+        $now = now_local();
+        $todayYmd = $now->format('Y-m-d');
+        $habitDate = $this->resolveHabitDate($now, isset($_GET['date']) ? (string) $_GET['date'] : null);
+        $habitDateYmd = $habitDate->format('Y-m-d');
+        $isHabitToday = $habitDateYmd === $todayYmd;
+
+        $habitDow = (int) $habitDate->format('N');
+        $habitMonday = $habitDate->modify('-' . ($habitDow - 1) . ' days');
+        $currentWeekMonday = $now->modify('-' . ((int) $now->format('N') - 1) . ' days');
+        $isCurrentHabitWeek = $habitMonday->format('Y-m-d') === $currentWeekMonday->format('Y-m-d');
+        $prevWeekTarget = $habitMonday->modify('-7 days')->format('Y-m-d');
+        $nextSameDow = $habitDate->modify('+7 days');
+        $nextWeekTarget = $nextSameDow->format('Y-m-d') > $todayYmd
+            ? $todayYmd
+            : $nextSameDow->format('Y-m-d');
+        $canGoNextWeek = $habitMonday->format('Y-m-d') < $currentWeekMonday->format('Y-m-d');
+
+        $dayNames = [
+            1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves',
+            5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo',
+        ];
+        $habitWeekDays = [];
+        for ($i = 0; $i < 7; $i++) {
+            $day = $habitMonday->modify('+' . $i . ' day');
+            $ymd = $day->format('Y-m-d');
+            if ($ymd > $todayYmd) {
+                continue;
+            }
+            $habitWeekDays[] = [
+                'date' => $ymd,
+                'label' => $dayNames[(int) $day->format('N')] . ' ' . $day->format('j/n'),
+                'is_today' => $ymd === $todayYmd,
+            ];
+        }
+
+        $list = $this->habits->listActive($userId);
+        $suggestedFriend = (new FriendService())->nextSuggestion($userId, $habitDateYmd);
+        $logsDay = $this->habits->logsForDate($userId, $habitDateYmd);
+
+        $habitYear = (int) $now->format('Y');
         foreach ($list as &$habit) {
-            $habit['log'] = $logsToday[(int) $habit['id']] ?? null;
+            $habit['log'] = $logsDay[(int) $habit['id']] ?? null;
             $habit['log_status'] = $habit['log']['status'] ?? null;
             $habit['log_quantity'] = isset($habit['log']['quantity']) ? (float) $habit['log']['quantity'] : 0.0;
             if (($habit['habit_key'] ?? '') === HabitService::KEY_TALK_FRIEND) {
@@ -63,7 +98,9 @@ final class HabitsController
             }
         }
 
-        $areas = $this->listAreas($userId);
+        $habitReturnPath = $isHabitToday
+            ? '/habits'
+            : '/habits?' . http_build_query(['date' => $habitDateYmd]);
 
         view('habits/index', [
             'title' => 'Hábitos',
@@ -75,11 +112,39 @@ final class HabitsController
             'habitYear' => $habitYear,
             'streak' => $streak,
             'recentLogs' => $recentLogs,
-            'areas' => $areas,
-            'todayDate' => $today,
+            'todayDate' => $todayYmd,
+            'habitDate' => $habitDateYmd,
+            'isHabitToday' => $isHabitToday,
+            'habitWeekDays' => $habitWeekDays,
+            'habitPrevWeek' => $prevWeekTarget,
+            'habitNextWeek' => $nextWeekTarget,
+            'canGoNextHabitWeek' => $canGoNextWeek,
+            'isCurrentHabitWeek' => $isCurrentHabitWeek,
+            'habitReturnPath' => $habitReturnPath,
             'flashSuccess' => flash('success'),
             'flashError' => flash('error'),
         ]);
+    }
+
+    private function resolveHabitDate(DateTimeImmutable $now, ?string $raw): DateTimeImmutable
+    {
+        $todayYmd = $now->format('Y-m-d');
+        if ($raw === null || $raw === '') {
+            return $now;
+        }
+        $raw = trim($raw);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return $now;
+        }
+        try {
+            $candidate = new DateTimeImmutable($raw, $now->getTimezone());
+        } catch (Throwable) {
+            return $now;
+        }
+        if ($candidate->format('Y-m-d') > $todayYmd) {
+            return $now;
+        }
+        return $candidate;
     }
 
     public function store(): void
@@ -337,7 +402,6 @@ final class HabitsController
             $days = array_filter(array_map('intval', explode(',', $days)));
         }
 
-        $areaId = input('area_id');
         $tracking = (string) (input('tracking_mode') ?: 'months');
         if (!in_array($tracking, ['months', 'units', 'daily'], true)) {
             $tracking = 'months';
@@ -348,7 +412,7 @@ final class HabitsController
         $payload = [
             'name' => trim((string) input('name', '')),
             'description' => input('description'),
-            'area_id' => $areaId !== null && $areaId !== '' ? (int) $areaId : null,
+            'area_id' => null,
             'frequency_type' => input('frequency_type') ?: ($tracking === 'daily' ? 'daily' : 'monthly'),
             'tracking_mode' => $tracking,
             'target_per_period' => (int) (input('target_per_period') ?: ($tracking === 'months' ? 12 : 1)),
@@ -381,19 +445,6 @@ final class HabitsController
              LIMIT ' . max(1, $limit)
         );
         $stmt->execute(['habit_id' => $habitId]);
-        return $stmt->fetchAll();
-    }
-
-    /** @return list<array<string, mixed>> */
-    private function listAreas(int $userId): array
-    {
-        $stmt = Database::pdo()->prepare(
-            'SELECT id, area_key, name, color
-             FROM life_areas
-             WHERE user_id = :user_id AND deleted_at IS NULL
-             ORDER BY sort_order ASC, id ASC'
-        );
-        $stmt->execute(['user_id' => $userId]);
         return $stmt->fetchAll();
     }
 

@@ -236,25 +236,26 @@ final class MetricsService
             $pipeline = $this->areaPipeline($userId, $year, $areaId);
             $months = $this->monthCheckStats($userId, $year, $areaId);
             $units = $this->quantityStats($userId, $year, $areaId);
-            $habitArea = $this->areaHabitStats($userId, $year, $areaId, $today);
             $nextDue = $this->areaNextDue($userId, $year, $areaId);
 
             $day = [
                 [
-                    'label' => 'Hábitos del área hoy',
-                    'value' => $habitArea['today_done'] . '/' . $habitArea['today_total'],
-                    'hint' => 'Programados para hoy',
-                    'percent' => $habitArea['today_total'] > 0 ? ($habitArea['today_done'] / $habitArea['today_total']) * 100 : 0.0,
+                    'label' => 'Objetivos activos',
+                    'value' => (string) $a['active'],
+                    'hint' => $pipeline['planned'] . ' planificados · ' . $pipeline['paused'] . ' pausados',
+                    'percent' => $a['total'] > 0 ? ($a['active'] / $a['total']) * 100 : 0.0,
                 ],
                 [
-                    'label' => 'Registros del año',
-                    'value' => (string) $habitArea['logs_year'],
-                    'hint' => $habitArea['active'] . ' hábitos activos',
+                    'label' => 'En riesgo',
+                    'value' => (string) $pipeline['at_risk'],
+                    'hint' => $pipeline['overdue'] . ' vencidos',
+                    'percent' => $a['total'] > 0 ? ($pipeline['at_risk'] / $a['total']) * 100 : 0.0,
+                    'tone' => 'warn',
                 ],
                 [
-                    'label' => 'Última actividad',
-                    'value' => $habitArea['last_log'] ?? '—',
-                    'hint' => 'Último registro de hábito',
+                    'label' => 'Próximo vencimiento',
+                    'value' => $nextDue['label'],
+                    'hint' => $nextDue['title'],
                 ],
             ];
 
@@ -379,27 +380,12 @@ final class MetricsService
             $areaId
         );
 
-        $habitsByMonth = $this->monthlySeries(
-            'SELECT MONTH(hl.log_date) AS m, COUNT(*) AS n
-             FROM habit_logs hl
-             INNER JOIN habits h ON h.id = hl.habit_id
-             WHERE h.user_id = :uid AND h.deleted_at IS NULL
-               AND hl.status = \'completed\' AND YEAR(hl.log_date) = :year',
-            ' AND h.area_id = :area_id',
-            ' GROUP BY MONTH(hl.log_date)',
-            $userId,
-            $year,
-            $areaId
-        );
-
         $composition = $this->statusComposition($userId, $year, $areaId);
 
         $hasData = array_sum($checksByMonth) > 0
-            || array_sum($habitsByMonth) > 0
             || array_sum(array_column($composition, 'value')) > 0;
 
         $accent = $this->normalizeHex($color);
-        $soft = $this->fadeHex($accent, 0.45);
 
         return [
             'has_data' => $hasData,
@@ -412,12 +398,6 @@ final class MetricsService
                             'label' => 'Meses tildados',
                             'data' => array_values($checksByMonth),
                             'backgroundColor' => $accent,
-                            'borderRadius' => 6,
-                        ],
-                        [
-                            'label' => 'Hábitos cumplidos',
-                            'data' => array_values($habitsByMonth),
-                            'backgroundColor' => $soft,
                             'borderRadius' => 6,
                         ],
                     ],
@@ -453,16 +433,6 @@ final class MetricsService
                             'borderColor' => $accent,
                             'backgroundColor' => $this->fadeHex($accent, 0.18),
                             'fill' => true,
-                            'tension' => 0.35,
-                            'pointRadius' => 2,
-                        ],
-                        [
-                            'label' => 'Hábitos cumplidos (acum.)',
-                            'data' => $this->cumulative($habitsByMonth),
-                            'borderColor' => $soft,
-                            'backgroundColor' => 'transparent',
-                            'borderDash' => [5, 4],
-                            'fill' => false,
                             'tension' => 0.35,
                             'pointRadius' => 2,
                         ],
@@ -662,47 +632,6 @@ final class MetricsService
             'at_risk' => $this->countAtRisk($userId, $year, $areaId),
             'binary' => (int) ($row['binary_total'] ?? 0),
             'binary_done' => (int) ($row['binary_done'] ?? 0),
-        ];
-    }
-
-    /** @return array{active:int,today_total:int,today_done:int,logs_year:int,last_log:?string} */
-    private function areaHabitStats(int $userId, int $year, ?int $areaId, DateTimeImmutable $today): array
-    {
-        if ($areaId === null) {
-            return ['active' => 0, 'today_total' => 0, 'today_done' => 0, 'logs_year' => 0, 'last_log' => null];
-        }
-
-        $active = Database::pdo()->prepare(
-            'SELECT COUNT(*) FROM habits
-             WHERE user_id = :uid AND deleted_at IS NULL AND archived_at IS NULL AND area_id = :area_id'
-        );
-        $active->execute(['uid' => $userId, 'area_id' => $areaId]);
-
-        $logs = Database::pdo()->prepare(
-            'SELECT COUNT(*) AS total,
-                    MAX(hl.log_date) AS last_log,
-                    SUM(CASE WHEN hl.log_date = :today AND hl.status = \'completed\' THEN 1 ELSE 0 END) AS today_done,
-                    SUM(CASE WHEN hl.log_date = :today2 THEN 1 ELSE 0 END) AS today_total
-             FROM habit_logs hl
-             INNER JOIN habits h ON h.id = hl.habit_id
-             WHERE h.user_id = :uid AND h.deleted_at IS NULL AND h.area_id = :area_id
-               AND YEAR(hl.log_date) = :year'
-        );
-        $logs->execute([
-            'uid' => $userId,
-            'area_id' => $areaId,
-            'year' => $year,
-            'today' => $today->format('Y-m-d'),
-            'today2' => $today->format('Y-m-d'),
-        ]);
-        $row = $logs->fetch() ?: [];
-
-        return [
-            'active' => (int) ($active->fetchColumn() ?: 0),
-            'today_total' => (int) ($row['today_total'] ?? 0),
-            'today_done' => (int) ($row['today_done'] ?? 0),
-            'logs_year' => (int) ($row['total'] ?? 0),
-            'last_log' => $row['last_log'] ? format_date((string) $row['last_log'], 'd M') : null,
         ];
     }
 

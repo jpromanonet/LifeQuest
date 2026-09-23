@@ -107,13 +107,13 @@ final class SeedManifest
             ],
 
             'habits' => [
-                ['key' => 'demo_h_leer', 'number' => 1, 'name' => 'Leer 20 minutos', 'area' => 'annual_educacion', 'frequency' => 'daily', 'preferred_time' => 'evening'],
-                ['key' => 'demo_h_idioma', 'number' => 2, 'name' => 'Practicar idioma', 'area' => 'annual_educacion', 'frequency' => 'weekdays', 'days' => [1, 2, 3, 4, 5]],
-                ['key' => 'demo_h_foco', 'number' => 3, 'name' => 'Bloque de trabajo profundo', 'area' => 'annual_trabajo', 'frequency' => 'weekdays', 'days' => [1, 2, 3, 4, 5], 'preferred_time' => 'morning'],
-                ['key' => 'demo_h_escribir', 'number' => 4, 'name' => 'Escribir 300 palabras', 'area' => 'annual_marca', 'frequency' => 'daily'],
-                ['key' => 'demo_h_entrenar', 'number' => 5, 'name' => 'Entrenar', 'area' => 'annual_salud', 'frequency' => 'weekdays', 'days' => [1, 3, 5], 'preferred_time' => 'morning'],
-                ['key' => 'demo_h_agua', 'number' => 6, 'name' => 'Tomar 2 litros de agua', 'area' => 'annual_salud', 'frequency' => 'daily'],
-                ['key' => 'demo_h_gastos', 'number' => 7, 'name' => 'Registrar gastos del día', 'area' => 'annual_finanzas', 'frequency' => 'daily', 'preferred_time' => 'evening'],
+                ['key' => 'demo_h_leer', 'number' => 1, 'name' => 'Leer 20 minutos', 'frequency' => 'daily', 'preferred_time' => 'evening'],
+                ['key' => 'demo_h_idioma', 'number' => 2, 'name' => 'Practicar idioma', 'frequency' => 'weekdays', 'days' => [1, 2, 3, 4, 5]],
+                ['key' => 'demo_h_foco', 'number' => 3, 'name' => 'Bloque de trabajo profundo', 'frequency' => 'weekdays', 'days' => [1, 2, 3, 4, 5], 'preferred_time' => 'morning'],
+                ['key' => 'demo_h_escribir', 'number' => 4, 'name' => 'Escribir 300 palabras', 'frequency' => 'daily'],
+                ['key' => 'demo_h_entrenar', 'number' => 5, 'name' => 'Entrenar', 'frequency' => 'weekdays', 'days' => [1, 3, 5], 'preferred_time' => 'morning'],
+                ['key' => 'demo_h_agua', 'number' => 6, 'name' => 'Tomar 2 litros de agua', 'frequency' => 'daily'],
+                ['key' => 'demo_h_gastos', 'number' => 7, 'name' => 'Registrar gastos del día', 'frequency' => 'daily', 'preferred_time' => 'evening'],
             ],
         ];
     }

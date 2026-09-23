@@ -25,7 +25,6 @@ final class MetricCatalog
                     'Minutos por idioma',
                     'Palabras nuevas aprendidas',
                     'Acciones educativas completadas',
-                    'Hábitos educativos cumplidos',
                     'Progreso diario de objetivos educativos',
                 ],
                 'year' => [
@@ -55,7 +54,6 @@ final class MetricCatalog
                     'Reuniones realizadas',
                     'Tiempo dedicado a reuniones',
                     'Interrupciones',
-                    'Hábitos laborales cumplidos',
                     'Progreso diario de objetivos laborales',
                     'Nivel de energía laboral',
                 ],
@@ -88,7 +86,6 @@ final class MetricCatalog
                     'Ideas registradas',
                     'Borradores completados',
                     'Piezas terminadas',
-                    'Hábitos de publicación cumplidos',
                     'Progreso diario de objetivos de marca personal',
                 ],
                 'year' => [
@@ -117,7 +114,6 @@ final class MetricCatalog
                 'notes' => 'LifeQuest mide objetivos financieros simples. Detalle monetario en Patrium. No calcula saldos, presupuestos ni patrimonio.',
                 'day' => [
                     'Acciones completadas para avanzar un objetivo financiero',
-                    'Hábitos no monetarios vinculados',
                     'Cambio manual de progreso',
                     'Días desde la última actualización',
                     'Acceso directo a Patrium',
@@ -157,7 +153,6 @@ final class MetricCatalog
                     'Día sin golosinas',
                     'Día sin cigarrillo',
                     'Día sin drogas recreativas',
-                    'Hábitos de salud cumplidos',
                     'Progreso diario de objetivos de salud',
                 ],
                 'year' => [
@@ -175,7 +170,6 @@ final class MetricCatalog
                     'Procedimientos odontológicos',
                     'Sesiones de terapia',
                     'Objetivos de salud completados',
-                    'Cumplimiento anual de hábitos',
                     'Comparación con el año anterior',
                 ],
             ],
@@ -194,7 +188,6 @@ final class MetricCatalog
                     'Errores resueltos',
                     'Decisiones tomadas',
                     'Cambios de alcance',
-                    'Hábitos vinculados cumplidos',
                     'Días desde la última actividad',
                 ],
                 'year' => [
