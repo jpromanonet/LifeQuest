@@ -59,6 +59,7 @@ final class WeeklyPlanController
             $id = $this->plan->create($userId, [
                 'title' => input('title'),
                 'task_date' => input('task_date'),
+                'task_kind' => input('task_kind'),
                 'notes' => input('notes'),
                 'start_time' => input('start_time'),
                 'estimated_minutes' => input('estimated_minutes'),
@@ -90,6 +91,7 @@ final class WeeklyPlanController
             $this->plan->update($userId, $taskId, [
                 'title' => input('title'),
                 'task_date' => input('task_date'),
+                'task_kind' => input('task_kind'),
                 'notes' => input('notes'),
                 'start_time' => input('start_time'),
                 'estimated_minutes' => input('estimated_minutes'),
@@ -104,6 +106,47 @@ final class WeeklyPlanController
             respond_saved('Tarea actualizada.', $this->redirectForDate($date));
         } catch (Throwable $e) {
             respond_error('No se pudo actualizar: ' . $e->getMessage(), '/weekly');
+        }
+    }
+
+    public function reorder(): void
+    {
+        Auth::requireLogin();
+        verify_csrf();
+        $userId = Auth::id();
+        $raw = input('items') ?? input('order') ?? [];
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : [];
+        }
+        $items = [];
+        if (is_array($raw)) {
+            foreach ($raw as $row) {
+                if (is_string($row) && str_contains($row, ':')) {
+                    [$id, $kind] = explode(':', $row, 2);
+                    $items[] = ['id' => (int) $id, 'kind' => $kind];
+                    continue;
+                }
+                if (is_array($row)) {
+                    $items[] = [
+                        'id' => (int) ($row['id'] ?? 0),
+                        'kind' => (string) ($row['kind'] ?? 'personal'),
+                    ];
+                }
+            }
+        }
+        try {
+            $this->plan->reorder($userId, $items);
+            $this->audit->log($userId, 'weekly.reorder', 'weekly_task', null, ['items' => $items]);
+            if (wants_json_request()) {
+                json_response(['ok' => true]);
+            }
+            respond_saved('Orden actualizado.', (string) (input('redirect') ?: '/weekly'));
+        } catch (Throwable $e) {
+            if (wants_json_request()) {
+                json_response(['ok' => false, 'error' => 'No se pudo reordenar.'], 422);
+            }
+            respond_error('No se pudo reordenar.', '/weekly');
         }
     }
 

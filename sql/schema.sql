@@ -416,6 +416,7 @@ CREATE TABLE IF NOT EXISTS weekly_tasks (
   user_id BIGINT UNSIGNED NOT NULL,
   task_date DATE NOT NULL,
   title VARCHAR(255) NOT NULL,
+  task_kind ENUM('work','personal') NOT NULL DEFAULT 'personal',
   notes TEXT NULL,
   image_path VARCHAR(255) NULL,
   start_time TIME NULL,

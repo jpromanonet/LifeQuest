@@ -69,6 +69,7 @@ $router->post('/horizon/{id}/delete', [$horizon, 'destroy']);
 $weekly = new WeeklyPlanController();
 $router->get('/weekly', [$weekly, 'index']);
 $router->post('/weekly', [$weekly, 'store']);
+$router->post('/weekly/reorder', [$weekly, 'reorder']);
 $router->post('/weekly/steps/{id}/toggle', [$weekly, 'toggleStep']);
 $router->post('/weekly/steps/{id}/delete', [$weekly, 'deleteStep']);
 $router->post('/weekly/{id}', [$weekly, 'update']);

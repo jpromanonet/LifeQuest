@@ -551,47 +551,89 @@
     });
   }
 
-  function initWeeklyTaskModal() {
+  function setTaskKind(kind) {
+    var value = kind === 'work' ? 'work' : 'personal';
+    document.querySelectorAll('input[name="task_kind"]').forEach(function (radio) {
+      radio.checked = radio.value === value;
+    });
+  }
+
+  function openWeeklyTaskModal(opts) {
     var dialog = document.getElementById('weeklyTaskModal');
     var form = document.getElementById('weeklyTaskForm');
     var route = document.getElementById('weeklyTaskRoute');
     if (!dialog || !form || !route) {
       return;
     }
+    var isEdit = !!opts.id;
+    route.value = isEdit ? '/weekly/' + opts.id : '/weekly';
+    setFormRoute(form, route.value);
+
+    var heading = document.getElementById('weeklyTaskModalTitle');
+    var submit = document.getElementById('weeklyTaskSubmit');
+    if (heading) {
+      heading.textContent = isEdit ? 'Editar tarea' : 'Nueva tarea';
+    }
+    if (submit) {
+      submit.textContent = isEdit ? 'Guardar' : 'Crear';
+    }
+
+    var title = document.getElementById('weeklyTaskTitle');
+    var date = document.getElementById('weeklyTaskDate');
+    var notes = document.getElementById('weeklyTaskNotes');
+    var start = document.getElementById('weeklyTaskStart');
+    var minutes = document.getElementById('weeklyTaskMinutes');
+    if (title) {
+      title.value = opts.title || '';
+    }
+    if (date) {
+      date.value = opts.date || date.value || '';
+    }
+    if (notes) {
+      notes.value = opts.notes || '';
+    }
+    if (start) {
+      start.value = opts.start || '';
+    }
+    if (minutes) {
+      minutes.value = opts.minutes || '';
+    }
+    setTaskKind(opts.kind || 'work');
+
+    form.setAttribute('data-repeat-exclude-date', opts.date || '');
+    form.setAttribute('data-repeat-exclude-title', normalizeTitleKey(opts.title || ''));
+    form.querySelectorAll('input[name="repeat_days[]"]').forEach(function (cb) {
+      cb.checked = false;
+    });
+    syncRepeatChips(form);
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    }
+    if (title) {
+      title.focus();
+    }
+  }
+
+  function initWeeklyTaskModal() {
     document.querySelectorAll('[data-edit-task]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var id = btn.getAttribute('data-id') || '0';
-        route.value = '/weekly/' + id;
-        setFormRoute(form, '/weekly/' + id);
-        var title = document.getElementById('weeklyTaskTitle');
-        var date = document.getElementById('weeklyTaskDate');
-        var notes = document.getElementById('weeklyTaskNotes');
-        var start = document.getElementById('weeklyTaskStart');
-        var minutes = document.getElementById('weeklyTaskMinutes');
-        if (title) {
-          title.value = btn.getAttribute('data-title') || '';
-        }
-        if (date) {
-          date.value = btn.getAttribute('data-date') || date.value || '';
-        }
-        if (notes) {
-          notes.value = btn.getAttribute('data-notes') || '';
-        }
-        if (start) {
-          start.value = btn.getAttribute('data-start') || '';
-        }
-        if (minutes) {
-          minutes.value = btn.getAttribute('data-minutes') || '';
-        }
-        form.setAttribute('data-repeat-exclude-date', btn.getAttribute('data-date') || '');
-        form.setAttribute('data-repeat-exclude-title', normalizeTitleKey(btn.getAttribute('data-title') || ''));
-        form.querySelectorAll('input[name="repeat_days[]"]').forEach(function (cb) {
-          cb.checked = false;
+        openWeeklyTaskModal({
+          id: btn.getAttribute('data-id') || '',
+          title: btn.getAttribute('data-title') || '',
+          date: btn.getAttribute('data-date') || '',
+          kind: btn.getAttribute('data-kind') || 'personal',
+          notes: btn.getAttribute('data-notes') || '',
+          start: btn.getAttribute('data-start') || '',
+          minutes: btn.getAttribute('data-minutes') || '',
         });
-        syncRepeatChips(form);
-        if (typeof dialog.showModal === 'function') {
-          dialog.showModal();
-        }
+      });
+    });
+    document.querySelectorAll('[data-new-task]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openWeeklyTaskModal({
+          date: btn.getAttribute('data-date') || '',
+          kind: 'work',
+        });
       });
     });
   }
@@ -1750,6 +1792,177 @@
     });
   }
 
+  function initTaskKindDrag() {
+    document.querySelectorAll('.weekly-task-list').forEach(function (list) {
+      var dragging = null;
+      var snapshot = '';
+
+      function kindOfRow(row) {
+        var prev = row.previousElementSibling;
+        var kind = 'personal';
+        while (prev) {
+          if (prev.classList.contains('task-kind-divider')) {
+            kind = prev.getAttribute('data-task-kind') === 'work' ? 'work' : 'personal';
+            break;
+          }
+          prev = prev.previousElementSibling;
+        }
+        return kind;
+      }
+
+      function currentItems() {
+        var items = [];
+        list.querySelectorAll('.weekly-task-row[data-task-id]').forEach(function (row) {
+          items.push({
+            id: parseInt(row.getAttribute('data-task-id') || '0', 10),
+            kind: kindOfRow(row),
+          });
+        });
+        return items;
+      }
+
+      function refreshSections() {
+        var counts = { work: 0, personal: 0 };
+        list.querySelectorAll('.weekly-task-row[data-task-id]').forEach(function (row) {
+          var kind = kindOfRow(row);
+          row.setAttribute('data-task-kind', kind);
+          var edit = row.querySelector('[data-edit-task]');
+          if (edit) {
+            edit.setAttribute('data-kind', kind);
+          }
+          counts[kind] = (counts[kind] || 0) + 1;
+          var num = row.querySelector('.task-num, .habit-num');
+          if (num) {
+            num.textContent = String(counts[kind]);
+          }
+        });
+        list.querySelectorAll('[data-empty-kind]').forEach(function (empty) {
+          var kind = empty.getAttribute('data-empty-kind');
+          empty.hidden = (counts[kind] || 0) > 0;
+          var divider = list.querySelector('.task-kind-divider[data-task-kind="' + kind + '"]');
+          if (divider && empty.previousElementSibling !== divider) {
+            divider.after(empty);
+          }
+        });
+      }
+
+      function saveItems() {
+        var items = currentItems();
+        var next = JSON.stringify(items);
+        if (next === snapshot) {
+          return;
+        }
+        var csrfInput = document.querySelector('input[name="_csrf"]');
+        var body = new FormData();
+        body.append('_csrf', csrfInput ? csrfInput.value : '');
+        body.append('r', '/weekly/reorder');
+        body.append('items', next);
+        fetch(appIndex(), {
+          method: 'POST',
+          body: body,
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            if (!data || !data.ok) {
+              showToast('No se pudo guardar el cambio.', true);
+              return;
+            }
+            showToast('Tarea actualizada.', false);
+          })
+          .catch(function () {
+            showToast('Error de red al mover la tarea.', true);
+          });
+      }
+
+      function rowAfterY(y) {
+        var nodes = Array.prototype.slice.call(
+          list.querySelectorAll(
+            '.weekly-task-row[data-task-id]:not(.is-dragging), .task-kind-divider, [data-empty-kind]:not([hidden])'
+          )
+        );
+        var closest = null;
+        var closestOffset = -Infinity;
+        nodes.forEach(function (node) {
+          var box = node.getBoundingClientRect();
+          var offset = y - box.top - box.height / 2;
+          if (offset < 0 && offset > closestOffset) {
+            closestOffset = offset;
+            closest = node;
+          }
+        });
+        return closest;
+      }
+
+      list.querySelectorAll('.weekly-task-row[data-task-id]').forEach(function (row) {
+        var handle = row.querySelector('[data-drag-handle]');
+        if (!handle) {
+          return;
+        }
+        handle.addEventListener('mousedown', function () {
+          row.draggable = true;
+        });
+        row.addEventListener('dragstart', function (event) {
+          dragging = row;
+          snapshot = JSON.stringify(currentItems());
+          row.classList.add('is-dragging');
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', row.getAttribute('data-task-id') || '');
+          }
+        });
+        row.addEventListener('dragend', function () {
+          row.draggable = false;
+          row.classList.remove('is-dragging');
+          if (dragging === row) {
+            dragging = null;
+            refreshSections();
+            saveItems();
+          }
+        });
+      });
+
+      list.addEventListener('dragover', function (event) {
+        if (!dragging) {
+          return;
+        }
+        event.preventDefault();
+        var after = rowAfterY(event.clientY);
+        if (after && after.classList.contains('task-kind-divider')) {
+          var slot = after.nextElementSibling;
+          if (slot && slot.hasAttribute('data-empty-kind')) {
+            slot.after(dragging);
+          } else {
+            after.after(dragging);
+          }
+        } else if (after && after.hasAttribute('data-empty-kind')) {
+          after.after(dragging);
+        } else if (after === null) {
+          list.appendChild(dragging);
+        } else if (after !== dragging) {
+          list.insertBefore(dragging, after);
+        }
+        var firstDivider = list.querySelector('.task-kind-divider');
+        if (firstDivider && dragging.compareDocumentPosition(firstDivider) & Node.DOCUMENT_POSITION_FOLLOWING) {
+          var firstEmpty = firstDivider.nextElementSibling;
+          if (firstEmpty && firstEmpty.hasAttribute('data-empty-kind')) {
+            firstEmpty.after(dragging);
+          } else {
+            firstDivider.after(dragging);
+          }
+        }
+      });
+      list.addEventListener('drop', function (event) {
+        if (dragging) {
+          event.preventDefault();
+        }
+      });
+    });
+  }
+
   function initTaskDetails() {
     var STORAGE_KEY = 'lqOpenTasks';
 
@@ -2451,6 +2664,7 @@
     initHorizonEditModal();
     initHabitEditModal();
     initHabitDragReorder();
+    initTaskKindDrag();
     initRuleModals();
     initMilestoneModal();
     initMilestoneBlock();

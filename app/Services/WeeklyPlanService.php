@@ -29,6 +29,7 @@ final class WeeklyPlanService
                   user_id BIGINT UNSIGNED NOT NULL,
                   task_date DATE NOT NULL,
                   title VARCHAR(255) NOT NULL,
+                  task_kind ENUM('work','personal') NOT NULL DEFAULT 'personal',
                   notes TEXT NULL,
                   image_path VARCHAR(255) NULL,
                   start_time TIME NULL,
@@ -57,6 +58,13 @@ final class WeeklyPlanService
         $minsCol = $pdo->query("SHOW COLUMNS FROM weekly_tasks LIKE 'estimated_minutes'")->fetch();
         if (!$minsCol) {
             $pdo->exec('ALTER TABLE weekly_tasks ADD COLUMN estimated_minutes INT UNSIGNED NULL AFTER start_time');
+        }
+        $kindCol = $pdo->query("SHOW COLUMNS FROM weekly_tasks LIKE 'task_kind'")->fetch();
+        if (!$kindCol) {
+            $pdo->exec(
+                "ALTER TABLE weekly_tasks
+                 ADD COLUMN task_kind ENUM('work','personal') NOT NULL DEFAULT 'personal' AFTER title"
+            );
         }
 
         $stepsExists = $pdo->query("SHOW TABLES LIKE 'weekly_task_steps'")->fetch();
@@ -248,11 +256,11 @@ final class WeeklyPlanService
         $today = now_local()->format('Y-m-d');
 
         $stmt = Database::pdo()->prepare(
-            'SELECT id, task_date, title, notes, image_path, start_time, estimated_minutes, is_done, sort_order, completed_at
+            'SELECT id, task_date, title, task_kind, notes, image_path, start_time, estimated_minutes, is_done, sort_order, completed_at
              FROM weekly_tasks
              WHERE user_id = :uid AND deleted_at IS NULL
                AND task_date BETWEEN :from AND :to
-             ORDER BY task_date ASC, start_time IS NULL ASC, start_time ASC, sort_order ASC, id ASC'
+             ORDER BY task_date ASC, sort_order ASC, start_time IS NULL ASC, start_time ASC, id ASC'
         );
         $stmt->execute([
             'uid' => $userId,
@@ -391,10 +399,10 @@ final class WeeklyPlanService
     {
         $this->ensureTable();
         $stmt = Database::pdo()->prepare(
-            'SELECT id, task_date, title, notes, image_path, start_time, estimated_minutes, is_done, sort_order, completed_at
+            'SELECT id, task_date, title, task_kind, notes, image_path, start_time, estimated_minutes, is_done, sort_order, completed_at
              FROM weekly_tasks
              WHERE user_id = :uid AND deleted_at IS NULL AND task_date = :d
-             ORDER BY start_time IS NULL ASC, start_time ASC, sort_order ASC, id ASC'
+             ORDER BY sort_order ASC, start_time IS NULL ASC, start_time ASC, id ASC'
         );
         $stmt->execute(['uid' => $userId, 'd' => $date]);
         return $this->attachSteps($userId, $stmt->fetchAll());
@@ -414,6 +422,7 @@ final class WeeklyPlanService
         }
 
         $notes = $data['notes'] ?? null;
+        $kind = self::normalizeKind($data['task_kind'] ?? 'personal');
         $startTime = self::normalizeTime($data['start_time'] ?? null);
         $estimated = self::normalizeMinutes($data['estimated_minutes'] ?? null);
         $weekdays = self::normalizeWeekdays($data['repeat_days'] ?? []);
@@ -438,6 +447,7 @@ final class WeeklyPlanService
             $lastId = $this->insertTask($userId, [
                 'task_date' => $taskDate,
                 'title' => $title,
+                'task_kind' => $kind,
                 'notes' => $notes,
                 'start_time' => $startTime,
                 'estimated_minutes' => $estimated,
@@ -461,13 +471,14 @@ final class WeeklyPlanService
         $sort = (int) $orderStmt->fetchColumn();
 
         $stmt = $pdo->prepare(
-            'INSERT INTO weekly_tasks (user_id, task_date, title, notes, image_path, start_time, estimated_minutes, sort_order)
-             VALUES (:uid, :d, :title, :notes, :image, :start_time, :estimated, :sort)'
+            'INSERT INTO weekly_tasks (user_id, task_date, title, task_kind, notes, image_path, start_time, estimated_minutes, sort_order)
+             VALUES (:uid, :d, :title, :kind, :notes, :image, :start_time, :estimated, :sort)'
         );
         $stmt->execute([
             'uid' => $userId,
             'd' => $date,
             'title' => mb_substr((string) $row['title'], 0, 255),
+            'kind' => self::normalizeKind($row['task_kind'] ?? 'personal'),
             'notes' => $row['notes'] ?? null,
             'image' => $row['image_path'] ?? null,
             'start_time' => $row['start_time'] ?? null,
@@ -475,6 +486,11 @@ final class WeeklyPlanService
             'sort' => $sort,
         ]);
         return (int) $pdo->lastInsertId();
+    }
+
+    public static function normalizeKind(mixed $raw): string
+    {
+        return (string) $raw === 'work' ? 'work' : 'personal';
     }
 
     /** @return list<int> */
@@ -515,6 +531,9 @@ final class WeeklyPlanService
             throw new InvalidArgumentException('Fecha inválida.');
         }
         $notes = array_key_exists('notes', $data) ? $data['notes'] : $task['notes'];
+        $kind = array_key_exists('task_kind', $data)
+            ? self::normalizeKind($data['task_kind'])
+            : self::normalizeKind($task['task_kind'] ?? 'personal');
         $startTime = array_key_exists('start_time', $data)
             ? self::normalizeTime($data['start_time'])
             : ($task['start_time'] ?? null);
@@ -524,13 +543,14 @@ final class WeeklyPlanService
 
         $stmt = Database::pdo()->prepare(
             'UPDATE weekly_tasks
-             SET title = :title, notes = :notes, task_date = :d,
+             SET title = :title, task_kind = :kind, notes = :notes, task_date = :d,
                  start_time = :start_time, estimated_minutes = :estimated,
                  updated_at = UTC_TIMESTAMP()
              WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
         );
         $stmt->execute([
             'title' => mb_substr($title, 0, 255),
+            'kind' => $kind,
             'notes' => $notes,
             'd' => $date,
             'start_time' => $startTime,
@@ -567,6 +587,7 @@ final class WeeklyPlanService
             $newId = $this->insertTask($userId, [
                 'task_date' => $copyDate,
                 'title' => (string) $source['title'],
+                'task_kind' => $source['task_kind'] ?? 'personal',
                 'notes' => $source['notes'] ?? null,
                 'image_path' => $source['image_path'] ?? null,
                 'start_time' => $source['start_time'] ?? null,
@@ -639,6 +660,39 @@ final class WeeklyPlanService
              WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
         );
         $stmt->execute(['id' => $id, 'uid' => $userId]);
+    }
+
+    /**
+     * Actualiza tipo y orden de las tareas de un día.
+     *
+     * @param list<array{id:int,kind:string}> $items
+     */
+    public function reorder(int $userId, array $items): void
+    {
+        $this->ensureTable();
+        if ($items === []) {
+            return;
+        }
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare(
+            'UPDATE weekly_tasks
+             SET task_kind = :kind, sort_order = :sort, updated_at = UTC_TIMESTAMP()
+             WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
+        );
+        $sort = 0;
+        foreach ($items as $item) {
+            $id = (int) ($item['id'] ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+            $sort++;
+            $stmt->execute([
+                'kind' => self::normalizeKind($item['kind'] ?? 'personal'),
+                'sort' => $sort,
+                'id' => $id,
+                'uid' => $userId,
+            ]);
+        }
     }
 
     /** @return array<string,mixed>|null */

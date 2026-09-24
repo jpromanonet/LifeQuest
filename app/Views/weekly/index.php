@@ -136,76 +136,24 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
                     <span class="muted small weekly-day-pct" data-day-pct><?= (int) $day['done'] ?>/<?= (int) $day['total'] ?></span>
                     <?php $dayHoursShort = format_hours_short((int) ($day['minutes_done'] ?? 0), (int) ($day['minutes_total'] ?? 0)); ?>
                     <span class="muted small weekly-day-hours-short" data-day-hours-short <?= $dayHoursShort === '' ? 'hidden' : '' ?>><?= e($dayHoursShort) ?></span>
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        data-new-task
+                        data-date="<?= e((string) $day['date']) ?>"
+                    >+ Tarea</button>
                 </div>
             </header>
-
-            <form method="post" action="<?= e(form_action()) ?>" class="weekly-add-form" data-lq-save>
-                <?= csrf_field() ?>
-                <?= route_field('/weekly') ?>
-                <input type="hidden" name="task_date" value="<?= e((string) $day['date']) ?>">
-                <input type="hidden" name="redirect" value="<?= e($returnPath) ?>">
-                <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
-                <div class="weekly-add-main">
-                    <input type="text" name="title" required maxlength="255" placeholder="Nueva tarea…" aria-label="Nueva tarea para <?= e((string) $day['label']) ?>">
-                    <input type="time" name="start_time" aria-label="Horario de inicio" title="Horario de inicio">
-                    <input type="number" name="estimated_minutes" min="1" max="1440" step="1" placeholder="min" aria-label="Tiempo estimado en minutos" title="Tiempo estimado (minutos)">
-                    <button type="submit" class="btn btn-ghost btn-sm">+</button>
-                </div>
-                <?php $currentDow = (int) ($day['dow'] ?? 0); include dirname(__DIR__) . '/partials/task_repeat_picker.php'; ?>
-            </form>
 
             <div class="weekly-day-banner" data-day-banner <?= empty($day['complete']) ? 'hidden' : '' ?>>
                 Carga diaria 100% ejecutada
             </div>
 
-            <ul class="habit-list weekly-task-list">
-                <?php if ($day['tasks'] === []): ?>
-                    <li class="empty-state muted small">Sin tareas</li>
-                <?php endif; ?>
-                <?php foreach ($day['tasks'] as $taskIndex => $task):
-                    $done = (int) ($task['is_done'] ?? 0) === 1;
-                    ?>
-                    <li class="habit-row weekly-task-row<?= $done ? ' is-done' : '' ?>" data-task-id="<?= (int) $task['id'] ?>">
-                        <span class="habit-num task-num"><?= (int) $taskIndex + 1 ?></span>
-                        <form method="post" action="<?= e(form_action()) ?>" class="habit-toggle-form" data-task-toggle>
-                            <?= csrf_field() ?>
-                            <?= route_field('/weekly/' . (int) $task['id'] . '/toggle') ?>
-                            <input type="hidden" name="status" value="<?= $done ? 'pending' : 'completed' ?>">
-                            <input type="hidden" name="redirect" value="<?= e($returnPath) ?>">
-                            <label class="check-toggle">
-                                <input type="checkbox" <?= $done ? 'checked' : '' ?> aria-label="Marcar <?= e((string) $task['title']) ?>">
-                                <span></span>
-                            </label>
-                        </form>
-                        <span class="habit-name">
-                            <?= e((string) $task['title']) ?>
-                            <?php include dirname(__DIR__) . '/partials/task_when.php'; ?>
-                            <?php include dirname(__DIR__) . '/partials/task_flags.php'; ?>
-                        </span>
-                        <div class="weekly-task-actions">
-                            <button type="button" class="btn btn-ghost btn-sm task-expand-btn" data-task-expand aria-expanded="false" title="Imagen y pasos">▾</button>
-                            <button
-                                type="button"
-                                class="btn btn-ghost btn-sm"
-                                data-edit-task
-                                data-id="<?= (int) $task['id'] ?>"
-                                data-title="<?= e((string) $task['title']) ?>"
-                                data-date="<?= e((string) $task['task_date']) ?>"
-                                data-notes="<?= e((string) ($task['notes'] ?? '')) ?>"
-                                data-start="<?= e(format_task_time($task['start_time'] ?? null)) ?>"
-                                data-minutes="<?= e((string) ((int) ($task['estimated_minutes'] ?? 0) > 0 ? (int) $task['estimated_minutes'] : '')) ?>"
-                            >Editar</button>
-                            <form method="post" action="<?= e(form_action()) ?>" data-lq-save onsubmit="return confirm('¿Eliminar esta tarea?');">
-                                <?= csrf_field() ?>
-                                <?= route_field('/weekly/' . (int) $task['id'] . '/delete') ?>
-                                <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
-                                <button type="submit" class="btn btn-danger btn-sm">×</button>
-                            </form>
-                        </div>
-                        <?php include dirname(__DIR__) . '/partials/task_detail.php'; ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+            <?php
+            $tasks = $day['tasks'];
+            $showDelete = true;
+            include dirname(__DIR__) . '/partials/task_day_list.php';
+            ?>
         </article>
     <?php endforeach; ?>
 </section>
@@ -214,17 +162,18 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
 <dialog class="modal" id="weeklyTaskModal">
     <form method="post" id="weeklyTaskForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
         <?= csrf_field() ?>
-        <input type="hidden" name="r" id="weeklyTaskRoute" value="/weekly/0">
+        <input type="hidden" name="r" id="weeklyTaskRoute" value="/weekly">
         <input type="hidden" name="filter_day" value="<?= e($dayFilter) ?>">
         <input type="hidden" name="redirect" value="<?= e('/weekly?' . http_build_query(['week' => $weekParam, 'day' => $dayFilter])) ?>">
         <header class="modal-head">
-            <h2 id="weeklyTaskModalTitle">Editar tarea</h2>
+            <h2 id="weeklyTaskModalTitle">Nueva tarea</h2>
             <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">×</button>
         </header>
         <label class="field">
             <span>Título</span>
             <input type="text" name="title" id="weeklyTaskTitle" required maxlength="255">
         </label>
+        <?php $selectedKind = 'work'; include dirname(__DIR__) . '/partials/task_kind_field.php'; ?>
         <label class="field">
             <span>Día</span>
             <select name="task_date" id="weeklyTaskDate">
@@ -250,7 +199,7 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
         <?php $currentDow = 0; include dirname(__DIR__) . '/partials/task_repeat_picker.php'; ?>
         <footer class="modal-foot">
             <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
-            <button type="submit" class="btn btn-primary">Guardar</button>
+            <button type="submit" class="btn btn-primary" id="weeklyTaskSubmit">Crear</button>
         </footer>
     </form>
 </dialog>
