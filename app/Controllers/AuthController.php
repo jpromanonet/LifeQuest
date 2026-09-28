@@ -28,7 +28,9 @@ final class AuthController
             redirect('/login');
         }
 
-        if (!Auth::attempt($email, $password)) {
+        $remember = (string) input('remember', '') === '1';
+
+        if (!Auth::attempt($email, $password, $remember)) {
             if (Auth::isLoginLocked()) {
                 flash('error', 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.');
             } else {

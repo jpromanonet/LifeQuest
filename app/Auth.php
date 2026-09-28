@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 final class Auth
 {
+    /** Mínimo 24 h: cookie y actividad. */
+    private const MIN_LIFETIME = 86400;
+
     public static function startSession(string $name): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -11,16 +14,16 @@ final class Auth
         }
 
         $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-        $lifetime = (int) app_config('session_lifetime', 86400);
-        if ($lifetime < 300) {
-            $lifetime = 300;
-        }
-        $idle = (int) app_config('session_idle', $lifetime);
-        if ($idle < 60) {
-            $idle = $lifetime;
-        }
+        $lifetime = self::configuredLifetime();
+        $idle = self::configuredIdle($lifetime);
 
+        // Carpeta propia: el tmp compartido de XAMPP borra sesiones a ~24 min (gc=1440).
+        $savePath = self::ensureSessionSavePath();
+        if ($savePath !== null) {
+            session_save_path($savePath);
+        }
         ini_set('session.gc_maxlifetime', (string) max($lifetime, $idle));
+        ini_set('session.cookie_lifetime', (string) $lifetime);
 
         $cookiePath = self::sessionCookiePath();
         session_name($name);
@@ -46,10 +49,13 @@ final class Auth
             $_SESSION['_cookie_paths_cleaned'] = 1;
         }
 
-        self::enforceIdleTimeout($idle, $lifetime);
+        // Si ya hay sesión con "Recordarme", usar esa vida al renovar la cookie.
+        $effectiveLifetime = self::effectiveLifetime($lifetime);
+        $effectiveIdle = max($idle, $effectiveLifetime === $lifetime ? $idle : $effectiveLifetime);
+        self::enforceIdleTimeout($effectiveIdle, $effectiveLifetime);
     }
 
-    public static function attempt(string $email, string $password): bool
+    public static function attempt(string $email, string $password, bool $remember = false): bool
     {
         if (!self::allowLoginAttempt()) {
             return false;
@@ -86,7 +92,10 @@ final class Auth
             'theme' => $user['theme'] ?: 'light',
         ];
         $_SESSION['_last_activity'] = time();
-        self::refreshSessionCookie((int) app_config('session_lifetime', 86400));
+        $_SESSION['_remember'] = $remember ? 1 : 0;
+        $lifetime = self::effectiveLifetime(self::configuredLifetime());
+        ini_set('session.gc_maxlifetime', (string) $lifetime);
+        self::refreshSessionCookie($lifetime);
 
         $upd = Database::pdo()->prepare('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = :id');
         $upd->execute(['id' => $user['id']]);
@@ -160,6 +169,62 @@ final class Auth
         }
         $_SESSION['_last_activity'] = time();
         self::refreshSessionCookie($cookieLifetime > 0 ? $cookieLifetime : $idleSeconds);
+    }
+
+    private static function configuredLifetime(): int
+    {
+        $lifetime = (int) app_config('session_lifetime', self::MIN_LIFETIME);
+        return max(self::MIN_LIFETIME, $lifetime);
+    }
+
+    private static function configuredIdle(int $lifetime): int
+    {
+        $idle = (int) app_config('session_idle', $lifetime);
+        if ($idle < 60) {
+            $idle = $lifetime;
+        }
+        return max(self::MIN_LIFETIME, $idle);
+    }
+
+    private static function rememberLifetime(): int
+    {
+        $remember = (int) app_config('session_remember', 2592000); // 30 días
+        return max(self::MIN_LIFETIME, $remember);
+    }
+
+    private static function effectiveLifetime(int $baseLifetime): int
+    {
+        if (!empty($_SESSION['_remember'])) {
+            return max($baseLifetime, self::rememberLifetime());
+        }
+        return $baseLifetime;
+    }
+
+    /** Directorio de sesiones solo de LifeQuest (evita GC ajeno en /var/lib/php/sessions). */
+    private static function ensureSessionSavePath(): ?string
+    {
+        $candidates = [
+            dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'sessions',
+            rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'lifequest_sessions',
+        ];
+
+        foreach ($candidates as $dir) {
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0777, true);
+            }
+            if (!is_dir($dir)) {
+                continue;
+            }
+            @chmod($dir, 0777);
+            $probe = $dir . DIRECTORY_SEPARATOR . '.write';
+            if (@file_put_contents($probe, '1') === false) {
+                continue;
+            }
+            @unlink($probe);
+            return $dir;
+        }
+
+        return null;
     }
 
     /** Path de la cookie = carpeta de la app (/lifequest), no / — evita dos cookies con el mismo nombre. */
