@@ -764,7 +764,16 @@ final class WeeklyPlanService
     /**
      * Resumen para métricas generales (últimas N semanas + semana actual).
      *
-     * @return array{current:array,avg_completion:float,perfect_days:int,tasks_done:int,tasks_total:int}
+     * @return array{
+     *   current:array,
+     *   avg_completion:float,
+     *   perfect_days:int,
+     *   tasks_done:int,
+     *   tasks_total:int,
+     *   avg_daily_done:float,
+     *   avg_daily_total:float,
+     *   days_with_tasks:int
+     * }
      */
     public function metricsSnapshot(int $userId, int $weeks = 4): array
     {
@@ -802,12 +811,17 @@ final class WeeklyPlanService
             }
         }
 
+        $daysWithTasks = count($dayPercents);
+
         return [
             'current' => $this->weekStats($userId),
-            'avg_completion' => $dayPercents !== [] ? round(array_sum($dayPercents) / count($dayPercents), 1) : 0.0,
+            'avg_completion' => $daysWithTasks > 0 ? round(array_sum($dayPercents) / $daysWithTasks, 1) : 0.0,
             'perfect_days' => $perfectDays,
             'tasks_done' => $tasksDone,
             'tasks_total' => $tasksTotal,
+            'avg_daily_done' => $daysWithTasks > 0 ? round($tasksDone / $daysWithTasks, 1) : 0.0,
+            'avg_daily_total' => $daysWithTasks > 0 ? round($tasksTotal / $daysWithTasks, 1) : 0.0,
+            'days_with_tasks' => $daysWithTasks,
         ];
     }
 }

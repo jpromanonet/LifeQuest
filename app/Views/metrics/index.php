@@ -268,7 +268,7 @@ if ($compareOptions === []) {
         <article class="metrics-area-card">
             <header><strong>Promedio diario</strong></header>
             <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= e(number_format((float) ($weeklyPlan['avg_completion'] ?? 0), 0)) ?>%</div>
-            <div class="muted small" style="margin-top:8px"><?= (int) ($weeklyPlan['tasks_done'] ?? 0) ?> / <?= (int) ($weeklyPlan['tasks_total'] ?? 0) ?> tareas</div>
+            <div class="muted small" style="margin-top:8px"><?= e(number_format((float) ($weeklyPlan['avg_daily_done'] ?? 0), 1)) ?> / <?= e(number_format((float) ($weeklyPlan['avg_daily_total'] ?? 0), 1)) ?> tareas/día</div>
         </article>
     </div>
 </section>
