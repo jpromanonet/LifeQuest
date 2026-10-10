@@ -101,8 +101,8 @@ final class TodayController
             'todayTaskStats' => [
                 'total' => $taskTotal,
                 'done' => $taskDone,
-                'percent' => $taskTotal > 0 ? round(($taskDone / $taskTotal) * 100, 1) : 0.0,
-                'complete' => $taskTotal > 0 && $taskDone === $taskTotal,
+                'percent' => WeeklyPlanService::dayPercent($taskDone, $taskTotal),
+                'complete' => WeeklyPlanService::dayIsComplete($taskDone, $taskTotal),
                 'minutes_total' => $todayMins['total'],
                 'minutes_done' => $todayMins['done'],
             ],

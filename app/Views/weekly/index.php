@@ -51,7 +51,7 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
     <article class="card kpi-card kpi-card--primary">
         <div class="kpi-label">Días con carga 100%</div>
         <div class="kpi-value"><?= (int) $stats['days_complete'] ?>/<?= max(1, (int) $stats['days_planned']) ?></div>
-        <div class="muted small">Días con todas las tareas hechas</div>
+        <div class="muted small">Sin tareas también cuenta como completo</div>
     </article>
     <article class="card kpi-card kpi-card--lavender">
         <div class="kpi-label">Hoy</div>

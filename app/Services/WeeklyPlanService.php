@@ -288,7 +288,6 @@ final class WeeklyPlanService
                     $done++;
                 }
             }
-            $percent = $total > 0 ? round(($done / $total) * 100, 1) : 0.0;
             $mins = self::minutesFromTasks($tasks);
             $board[] = [
                 'date' => $date,
@@ -298,8 +297,8 @@ final class WeeklyPlanService
                 'is_today' => $date === $today,
                 'total' => $total,
                 'done' => $done,
-                'percent' => $percent,
-                'complete' => $total > 0 && $done === $total,
+                'percent' => self::dayPercent($done, $total),
+                'complete' => self::dayIsComplete($done, $total),
                 'minutes_total' => $mins['total'],
                 'minutes_done' => $mins['done'],
                 'tasks' => $tasks,
@@ -361,6 +360,20 @@ final class WeeklyPlanService
             }
         }
         return ['total' => $total, 'done' => $done];
+    }
+
+    /** Un día sin tareas no tiene nada pendiente: cuenta como 100%. */
+    public static function dayPercent(int $done, int $total): float
+    {
+        if ($total <= 0) {
+            return 100.0;
+        }
+        return round(($done / $total) * 100, 1);
+    }
+
+    public static function dayIsComplete(int $done, int $total): bool
+    {
+        return $total <= 0 || $done >= $total;
     }
 
     /**
@@ -719,7 +732,7 @@ final class WeeklyPlanService
         $board = $this->weekBoard($userId, $ref);
         $weekTotal = 0;
         $weekDone = 0;
-        $daysPlanned = 0;
+        $daysPlanned = count($board);
         $daysComplete = 0;
         $todayTotal = 0;
         $todayDone = 0;
@@ -732,9 +745,6 @@ final class WeeklyPlanService
             $weekDone += $day['done'];
             $weekMinutesTotal += (int) ($day['minutes_total'] ?? 0);
             $weekMinutesDone += (int) ($day['minutes_done'] ?? 0);
-            if ($day['total'] > 0) {
-                $daysPlanned++;
-            }
             if ($day['complete']) {
                 $daysComplete++;
             }
@@ -748,12 +758,12 @@ final class WeeklyPlanService
         return [
             'week_total' => $weekTotal,
             'week_done' => $weekDone,
-            'week_percent' => $weekTotal > 0 ? round(($weekDone / $weekTotal) * 100, 1) : 0.0,
+            'week_percent' => self::dayPercent($weekDone, $weekTotal),
             'days_planned' => $daysPlanned,
             'days_complete' => $daysComplete,
             'today_total' => $todayTotal,
             'today_done' => $todayDone,
-            'today_percent' => $todayTotal > 0 ? round(($todayDone / $todayTotal) * 100, 1) : 0.0,
+            'today_percent' => self::dayPercent($todayDone, $todayTotal),
             'week_minutes_total' => $weekMinutesTotal,
             'week_minutes_done' => $weekMinutesDone,
             'today_minutes_total' => $todayMinutesTotal,
@@ -794,28 +804,39 @@ final class WeeklyPlanService
         $stmt->execute(['uid' => $userId, 'from' => $from, 'to' => $to]);
         $rows = $stmt->fetchAll();
 
+        $byDate = [];
+        foreach ($rows as $row) {
+            $byDate[(string) $row['task_date']] = $row;
+        }
+
         $tasksTotal = 0;
         $tasksDone = 0;
         $perfectDays = 0;
         $dayPercents = [];
-        foreach ($rows as $row) {
-            $total = (int) $row['total'];
-            $done = (int) $row['done'];
+        $daysWithTasks = 0;
+        $cursor = new DateTimeImmutable($from);
+        $end = new DateTimeImmutable($to);
+        while ($cursor <= $end) {
+            $key = $cursor->format('Y-m-d');
+            $total = isset($byDate[$key]) ? (int) $byDate[$key]['total'] : 0;
+            $done = isset($byDate[$key]) ? (int) $byDate[$key]['done'] : 0;
             $tasksTotal += $total;
             $tasksDone += $done;
-            if ($total > 0 && $done === $total) {
+            if ($total > 0) {
+                $daysWithTasks++;
+            }
+            if (self::dayIsComplete($done, $total)) {
                 $perfectDays++;
             }
-            if ($total > 0) {
-                $dayPercents[] = ($done / $total) * 100;
-            }
+            $dayPercents[] = self::dayPercent($done, $total);
+            $cursor = $cursor->modify('+1 day');
         }
 
-        $daysWithTasks = count($dayPercents);
+        $dayCount = count($dayPercents);
 
         return [
             'current' => $this->weekStats($userId),
-            'avg_completion' => $daysWithTasks > 0 ? round(array_sum($dayPercents) / $daysWithTasks, 1) : 0.0,
+            'avg_completion' => $dayCount > 0 ? round(array_sum($dayPercents) / $dayCount, 1) : 100.0,
             'perfect_days' => $perfectDays,
             'tasks_done' => $tasksDone,
             'tasks_total' => $tasksTotal,

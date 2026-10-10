@@ -204,8 +204,8 @@ final class WeeklyPlanController
                         'date' => $date,
                         'total' => $total,
                         'done' => $doneCount,
-                        'percent' => $total > 0 ? round(($doneCount / $total) * 100, 1) : 0.0,
-                        'complete' => $total > 0 && $doneCount === $total,
+                        'percent' => WeeklyPlanService::dayPercent($doneCount, $total),
+                        'complete' => WeeklyPlanService::dayIsComplete($doneCount, $total),
                         'hours' => hours_stats_payload($dayMins['done'], $dayMins['total']),
                     ],
                     'week' => [
