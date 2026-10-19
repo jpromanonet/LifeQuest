@@ -55,10 +55,29 @@ final class ScheduleController
         $userId = Auth::id();
         $blockId = (int) $id;
         try {
-            $block = $this->schedule->update($userId, $blockId, $this->payload());
+            $scope = (string) input('apply_scope', '');
+            $related = [];
+            if ($scope === 'all') {
+                $updated = $this->schedule->updateSeries($userId, $blockId, $this->payload());
+                $block = null;
+                foreach ($updated as $item) {
+                    if ((int) $item['id'] === $blockId) {
+                        $block = $item;
+                    } else {
+                        $related[] = $item;
+                    }
+                }
+                if ($block === null) {
+                    throw new InvalidArgumentException('No encontré ese bloque.');
+                }
+            } else {
+                $block = $this->schedule->update($userId, $blockId, $this->payload(), $scope === 'this');
+            }
             $copies = $this->schedule->repeatOnDays($userId, $blockId, input('repeat_days', []));
-            $this->audit->log($userId, 'schedule.update', 'schedule_block', $blockId);
-            $this->respond($block, 'Bloque actualizado.', $copies);
+            $this->audit->log($userId, 'schedule.update', 'schedule_block', $blockId, [
+                'scope' => $scope !== '' ? $scope : 'keep',
+            ]);
+            $this->respond($block, 'Bloque actualizado.', array_merge($related, $copies));
         } catch (Throwable $e) {
             $this->fail($e);
         }
@@ -71,10 +90,19 @@ final class ScheduleController
         $userId = Auth::id();
         $blockId = (int) $id;
         try {
-            $this->schedule->delete($userId, $blockId);
-            $this->audit->log($userId, 'schedule.delete', 'schedule_block', $blockId);
+            $scope = (string) input('apply_scope', '');
+            $ids = $scope === 'all'
+                ? $this->schedule->deleteSeries($userId, $blockId)
+                : [$blockId];
+            if ($scope !== 'all') {
+                $this->schedule->delete($userId, $blockId);
+            }
+            $this->audit->log($userId, 'schedule.delete', 'schedule_block', $blockId, [
+                'scope' => $scope === 'all' ? 'all' : 'this',
+                'ids' => $ids,
+            ]);
             if (wants_json_request()) {
-                json_response(['ok' => true, 'id' => $blockId]);
+                json_response(['ok' => true, 'id' => $blockId, 'ids' => $ids]);
             }
             respond_saved('Bloque eliminado.', '/horario');
         } catch (Throwable $e) {

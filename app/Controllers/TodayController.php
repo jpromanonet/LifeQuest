@@ -110,6 +110,7 @@ final class TodayController
                 'minutes_total' => $weekMinTotal,
                 'minutes_done' => $weekMinDone,
             ],
+            'training' => (new SportService())->board($userId, $todayYmd),
             'dueMilestones' => (new MilestoneService())->pendingDue($userId, $todayDate),
         ]);
     }

@@ -85,6 +85,16 @@ $fruit = $overview['fruit'] ?? [
     'streak' => 0,
 ];
 $fruitTodayPct = max(0, min(100, round(((float) ($fruit['today'] ?? 0) / max(1.0, (float) ($fruit['target'] ?? 3))) * 100)));
+$training = $overview['training'] ?? [];
+$trRatio = static function (int $done, int $planned): int {
+    return $planned > 0 ? (int) min(100, round(($done / $planned) * 100)) : 0;
+};
+$trClassWeekPct = $trRatio((int) ($training['classes_week_done'] ?? 0), (int) ($training['classes_week_planned'] ?? 0));
+$trClassMonthPct = $trRatio((int) ($training['classes_month_done'] ?? 0), (int) ($training['classes_month_planned'] ?? 0));
+$trRepsPct = (int) ($training['routine_reps_percent'] ?? 0);
+$trFmt = static function (float $n): string {
+    return number_format($n, 1, ',', '.');
+};
 $fruitWeekPct = ((int) ($fruit['week_days'] ?? 0)) > 0
     ? round(((int) ($fruit['week_days_done'] ?? 0) / max(1, (int) $fruit['week_days'])) * 100)
     : 0;
@@ -113,33 +123,30 @@ foreach ($areaSnap as $a) {
     }
 }
 
-// Año de comparación: respetar el pedido del usuario (o el calculado en overview).
-$compareYear = (int) ($filters['compare_year'] ?? $overview['compare_year'] ?? ($year - 1));
+$compareYear = (int) ($overview['compare_year'] ?? ($year - 1));
 if ($compareYear === $year || $compareYear < 2000 || $compareYear > 2100) {
-    $compareYear = (int) ($overview['compare_year'] ?? ($year - 1));
-}
-if ($compareYear === $year) {
     $compareYear = $year - 1;
 }
 
-$compareOptions = [];
-foreach ($availableYears as $cy) {
-    $cy = (int) $cy;
-    if ($cy !== $year && $cy >= 2000 && $cy <= 2100) {
-        $compareOptions[] = $cy;
-    }
+$metricSections = [
+    'goals' => 'Objetivos',
+    'weekly' => 'Plan semanal',
+    'milestones' => 'Hitos',
+    'training' => 'Entrenamiento',
+    'water' => 'Agua',
+    'fruit' => 'Frutas',
+    'friends' => 'Amigos',
+    'areas' => 'Áreas',
+    'habits' => 'Hábitos',
+    'catalog' => 'Catálogo',
+];
+$metricSection = (string) ($filters['section'] ?? 'all');
+if (!isset($metricSections[$metricSection])) {
+    $metricSection = 'all';
 }
-foreach ([$compareYear, $year - 1] as $extra) {
-    $extra = (int) $extra;
-    if ($extra !== $year && $extra >= 2000 && $extra <= 2100 && !in_array($extra, $compareOptions, true)) {
-        $compareOptions[] = $extra;
-    }
-}
-$compareOptions = array_values(array_unique($compareOptions));
-rsort($compareOptions, SORT_NUMERIC);
-if ($compareOptions === []) {
-    $compareOptions[] = $year - 1;
-}
+$showSection = static function (string $key) use ($metricSection): bool {
+    return $metricSection === 'all' || $metricSection === $key;
+};
 ?>
 <section class="page-header">
     <div>
@@ -158,16 +165,18 @@ if ($compareOptions === []) {
             <?php endforeach; ?>
         </select>
     </label>
-    <label class="field metrics-year-field">
-        <span>Comparar con</span>
-        <select name="compare_year" onchange="this.form.submit()" aria-label="Año de comparación">
-            <?php foreach ($compareOptions as $cy): ?>
-                <option value="<?= (int) $cy ?>" <?= (int) $cy === $compareYear ? 'selected' : '' ?>">vs <?= (int) $cy ?></option>
+    <label class="field metrics-year-field metrics-section-field">
+        <span>Sección</span>
+        <select name="section" onchange="this.form.submit()" aria-label="Sección de métricas">
+            <option value="all"<?= $metricSection === 'all' ? ' selected' : '' ?>>Todas</option>
+            <?php foreach ($metricSections as $sectionKey => $sectionLabel): ?>
+                <option value="<?= e($sectionKey) ?>"<?= $metricSection === $sectionKey ? ' selected' : '' ?>><?= e($sectionLabel) ?></option>
             <?php endforeach; ?>
         </select>
     </label>
 </form>
 
+<?php if ($showSection('goals')): ?>
 <section class="metrics-kpi-layout">
     <?php
     $monthlyBar = $overview['monthly_completion'] ?? [];
@@ -241,7 +250,9 @@ if ($compareOptions === []) {
         </article>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('weekly')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header">
         <h2>Plan semanal</h2>
@@ -272,7 +283,9 @@ if ($compareOptions === []) {
         </article>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('milestones')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header">
         <h2>Hitos</h2>
@@ -302,7 +315,99 @@ if ($compareOptions === []) {
         </article>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('training')): ?>
+<section class="card" style="margin-top:16px">
+    <?php
+    $trainCharts = [
+        ['id' => 'trainSeriesBar', 'title' => 'Series por mes', 'key' => 'series_bar'],
+        ['id' => 'trainSeriesLine', 'title' => 'Series acumuladas', 'key' => 'series_line'],
+        ['id' => 'trainSeriesPie', 'title' => 'Series por ejercicio', 'key' => 'series_pie'],
+        ['id' => 'trainKmBar', 'title' => 'Kilómetros por mes', 'key' => 'km_bar'],
+        ['id' => 'trainClassesBar', 'title' => 'Clases por mes', 'key' => 'classes_bar'],
+        ['id' => 'trainWeightLine', 'title' => 'Peso', 'key' => 'weight_line'],
+    ];
+    ?>
+    <div class="card-header">
+        <h2>Entrenamiento</h2>
+        <a class="text-link" href="<?= e(url('/deportes')) ?>">Abrir Entrenamiento →</a>
+    </div>
+    <div class="kpi-grid kpi-grid-4" style="margin:0">
+        <article class="metrics-area-card">
+            <header><strong>Cuerpo</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0">
+                <?php if (($training['weight'] ?? null) === null): ?>
+                    —
+                <?php else: ?>
+                    <?= e($trFmt((float) $training['weight'])) ?>
+                    <span class="muted" style="font-size:0.85rem;font-weight:600">kg</span>
+                <?php endif; ?>
+            </div>
+            <div class="muted small" style="margin-top:8px">
+                <?php if (($training['bmi'] ?? null) === null): ?>
+                    Cargá peso y altura en Entrenamiento
+                <?php else: ?>
+                    BMI <?= e($trFmt((float) $training['bmi'])) ?> · <?= e((string) ($training['bmi_label'] ?? '')) ?>
+                    <?php if (($training['weight_delta'] ?? null) !== null): ?>
+                        · <?= (float) $training['weight_delta'] > 0 ? '+' : '' ?><?= e($trFmt((float) $training['weight_delta'])) ?> kg
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Kilómetros</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0">
+                <?= e($trFmt((float) ($training['km_week'] ?? 0))) ?>
+                <span class="muted" style="font-size:0.85rem;font-weight:600">km</span>
+            </div>
+            <div class="muted small" style="margin-top:8px">
+                esta semana · mes <?= e($trFmt((float) ($training['km_month'] ?? 0))) ?> · año <?= e($trFmt((float) ($training['km_year'] ?? 0))) ?>
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Clases</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0"><?= (int) ($training['classes_week_done'] ?? 0) ?><span class="muted" style="font-size:0.85rem;font-weight:600"> / <?= (int) ($training['classes_week_planned'] ?? 0) ?></span></div>
+            <div class="progress"><span style="width:<?= (int) $trClassWeekPct ?>%;background:var(--color-primary)"></span></div>
+            <div class="muted small" style="margin-top:8px">
+                semana · mes <?= (int) ($training['classes_month_done'] ?? 0) ?>/<?= (int) ($training['classes_month_planned'] ?? 0) ?> (<?= (int) $trClassMonthPct ?>%)
+                · año <?= (int) ($training['classes_year_done'] ?? 0) ?>/<?= (int) ($training['classes_year_planned'] ?? 0) ?>
+            </div>
+        </article>
+        <article class="metrics-area-card">
+            <header><strong>Series del año</strong></header>
+            <div class="kpi-value" style="font-size:1.4rem;margin:8px 0">
+                <?= number_format((int) ($training['series_year'] ?? 0), 0, ',', '.') ?>
+                <span class="muted" style="font-size:0.85rem;font-weight:600">series</span>
+            </div>
+            <?php if (!empty($training['has_routine'])): ?>
+                <div class="progress"><span style="width:<?= (int) $trRepsPct ?>%;background:var(--color-mint)"></span></div>
+            <?php endif; ?>
+            <div class="muted small" style="margin-top:8px">
+                <?php if (empty($training['has_routine'])): ?>
+                    En el año · sin rutina personal
+                <?php else: ?>
+                    en el año · <?= (int) ($training['routine_at_100'] ?? 0) ?>/<?= (int) ($training['routine_total'] ?? 0) ?> en ×100
+                    · hoy <?= (int) ($training['routine_done'] ?? 0) ?>/<?= (int) ($training['routine_total'] ?? 0) ?>
+                <?php endif; ?>
+            </div>
+        </article>
+    </div>
+    <div class="train-charts">
+        <?php foreach ($trainCharts as $chart): ?>
+            <article class="train-chart">
+                <h3><?= e($chart['title']) ?></h3>
+                <div class="chart-box">
+                    <canvas id="<?= e($chart['id']) ?>" aria-label="<?= e($chart['title']) ?>"></canvas>
+                </div>
+                <script type="application/json" data-chart="<?= e($chart['id']) ?>"><?= json_encode($training['charts'][$chart['key']] ?? ['type' => 'bar', 'data' => ['labels' => [], 'datasets' => []]], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
+            </article>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
+
+<?php if ($showSection('water')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header">
         <h2>Agua</h2>
@@ -340,7 +445,9 @@ if ($compareOptions === []) {
         </article>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('fruit')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header">
         <h2>Frutas</h2>
@@ -378,7 +485,9 @@ if ($compareOptions === []) {
         </article>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('friends')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header">
         <h2>Amigos/as · interacción</h2>
@@ -422,7 +531,9 @@ if ($compareOptions === []) {
         </article>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('areas')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header">
         <h2>Comparación de <?= (int) $areaCount ?> áreas · <?= (int) $year ?></h2>
@@ -463,8 +574,11 @@ if ($compareOptions === []) {
         <?php endforeach; ?>
     </div>
 </section>
+<?php endif; ?>
 
-<section class="split-2" style="margin-top:16px">
+<?php if ($showSection('habits') || $showSection('goals')): ?>
+<section class="split-2<?= ($showSection('habits') && $showSection('goals')) ? '' : ' is-single' ?>" style="margin-top:16px">
+    <?php if ($showSection('habits')): ?>
     <article class="card">
         <div class="card-header"><h2>Hábitos · semana</h2></div>
         <div class="chart-box">
@@ -472,6 +586,8 @@ if ($compareOptions === []) {
         </div>
         <script type="application/json" data-chart="metricsWeek"><?= json_encode($weeklyChart, JSON_UNESCAPED_UNICODE) ?></script>
     </article>
+    <?php endif; ?>
+    <?php if ($showSection('goals')): ?>
     <article class="card">
         <div class="card-header"><h2>Distribución de objetivos</h2></div>
         <div class="chart-box">
@@ -479,8 +595,11 @@ if ($compareOptions === []) {
         </div>
         <script type="application/json" data-chart="metricsAreas"><?= json_encode($areaChart, JSON_UNESCAPED_UNICODE) ?></script>
     </article>
+    <?php endif; ?>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('habits')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header"><h2>Tendencia de hábitos</h2></div>
     <div class="chart-box chart-box--sm">
@@ -488,7 +607,9 @@ if ($compareOptions === []) {
     </div>
     <script type="application/json" data-chart="metricsHeat"><?= json_encode($heatmapChart, JSON_UNESCAPED_UNICODE) ?></script>
 </section>
+<?php endif; ?>
 
+<?php if ($showSection('catalog')): ?>
 <section class="card" style="margin-top:16px">
     <div class="card-header">
         <h2>Catálogo de métricas</h2>
@@ -563,3 +684,4 @@ if ($compareOptions === []) {
         </details>
     <?php endforeach; ?>
 </section>
+<?php endif; ?>

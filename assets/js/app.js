@@ -214,14 +214,12 @@
   }
 
   function initHabitDaySelect() {
-    var sel = document.getElementById('habitDaySelect');
-    if (!sel) {
-      return;
-    }
-    sel.addEventListener('change', function () {
-      if (sel.value) {
-        window.location.href = sel.value;
-      }
+    document.querySelectorAll('[data-day-select]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        if (sel.value) {
+          window.location.href = sel.value;
+        }
+      });
     });
   }
 
@@ -1792,6 +1790,150 @@
     });
   }
 
+  function initExerciseRename() {
+    document.querySelectorAll('.sport-name-input').forEach(function (input) {
+      var initial = input.value;
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          input.value = initial;
+          input.blur();
+        }
+      });
+      input.addEventListener('change', function () {
+        var next = input.value.trim();
+        if (next === '' || next === initial) {
+          input.value = initial;
+          return;
+        }
+        input.value = next;
+        if (input.form) {
+          input.form.submit();
+        }
+      });
+    });
+  }
+
+  function initExerciseDragReorder() {
+    var list = document.querySelector('.sport-check-list[data-exercise-order]');
+    if (!list) {
+      return;
+    }
+    var dragging = null;
+    var orderBefore = '';
+
+    function currentOrder() {
+      var ids = [];
+      list.querySelectorAll('[data-exercise-id]').forEach(function (row) {
+        ids.push(row.getAttribute('data-exercise-id'));
+      });
+      return ids;
+    }
+
+    function renumberRows() {
+      list.querySelectorAll('[data-exercise-id]').forEach(function (row, index) {
+        var numEl = row.querySelector('.habit-num');
+        if (numEl) {
+          numEl.textContent = String(index + 1);
+        }
+        row.setAttribute('data-color-group', String(Math.floor(index / 3) % 12));
+      });
+    }
+
+    function saveOrder() {
+      var ids = currentOrder();
+      if (ids.join(',') === orderBefore) {
+        return;
+      }
+      renumberRows();
+      var csrfInput = document.querySelector('input[name="_csrf"]');
+      var body = new FormData();
+      body.append('_csrf', csrfInput ? csrfInput.value : '');
+      body.append('r', '/deportes/exercises/reorder');
+      body.append('order', ids.join(','));
+      fetch(appIndex(), {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data || !data.ok) {
+            showToast('No se pudo guardar el orden.', true);
+            return;
+          }
+          showToast('Orden actualizado.', false);
+        })
+        .catch(function () {
+          showToast('Error de red al reordenar.', true);
+        });
+    }
+
+    function rowAfterY(y) {
+      var rows = Array.prototype.slice.call(
+        list.querySelectorAll('[data-exercise-id]:not(.is-dragging)')
+      );
+      var closest = null;
+      var closestOffset = -Infinity;
+      rows.forEach(function (row) {
+        var box = row.getBoundingClientRect();
+        var offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closestOffset) {
+          closestOffset = offset;
+          closest = row;
+        }
+      });
+      return closest;
+    }
+
+    list.querySelectorAll('[data-exercise-id]').forEach(function (row) {
+      var handle = row.querySelector('[data-drag-handle]');
+      if (!handle) {
+        return;
+      }
+      handle.addEventListener('mousedown', function () {
+        row.draggable = true;
+      });
+      row.addEventListener('dragstart', function (event) {
+        dragging = row;
+        orderBefore = currentOrder().join(',');
+        row.classList.add('is-dragging');
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', row.getAttribute('data-exercise-id') || '');
+        }
+      });
+      row.addEventListener('dragend', function () {
+        row.draggable = false;
+        row.classList.remove('is-dragging');
+        if (dragging === row) {
+          dragging = null;
+          saveOrder();
+        }
+      });
+    });
+
+    list.addEventListener('dragover', function (event) {
+      if (!dragging) {
+        return;
+      }
+      event.preventDefault();
+      var after = rowAfterY(event.clientY);
+      if (after === null) {
+        list.appendChild(dragging);
+      } else if (after !== dragging) {
+        list.insertBefore(dragging, after);
+      }
+    });
+    list.addEventListener('drop', function (event) {
+      if (dragging) {
+        event.preventDefault();
+      }
+    });
+  }
+
   function initTaskKindDrag() {
     document.querySelectorAll('.weekly-task-list').forEach(function (list) {
       var dragging = null;
@@ -2667,7 +2809,7 @@
     var editingId = 0;
 
     function hourPx() {
-      var col = board.querySelector('.horario-col');
+      var col = board.querySelector('.horario-col.is-selected') || board.querySelector('.horario-col');
       var hours = (dayEnd - dayStart) / 60;
       if (!col || hours < 1) {
         return 40;
@@ -2724,12 +2866,14 @@
         });
         var lanes = max + 1;
         var lane = Number(block.dataset.lane);
+        block.dataset.lanes = String(lanes);
         var height = Math.max(18, minutesToTop(end) - minutesToTop(start) - 3);
         block.style.top = minutesToTop(start) + 'px';
         block.style.height = height + 'px';
         block.style.left = 'calc(' + lane + ' * (100% / ' + lanes + ') + 4px)';
         block.style.width = 'calc(100% / ' + lanes + ' - 8px)';
-        block.classList.toggle('is-compact', height < 36);
+        block.classList.toggle('is-compact', height < 26);
+        block.classList.toggle('is-snug', height < 40);
       });
     }
 
@@ -2742,6 +2886,7 @@
       el.dataset.title = block.title || '';
       el.dataset.notes = block.notes || '';
       el.dataset.weekday = String(block.weekday);
+      el.dataset.series = String(block.series_id || block.id || '');
       el.dataset.start = String(block.start_minute);
       el.dataset.end = String(block.end_minute);
       el.dataset.startLabel = block.start_label || '';
@@ -2755,12 +2900,16 @@
       if (time) {
         time.textContent = (block.start_label || '') + ' – ' + (block.end_label || '');
       }
+      var note = el.querySelector('.horario-note');
+      if (note) {
+        note.textContent = block.notes || '';
+      }
     }
 
     function makeBlock(block) {
       var el = document.createElement('article');
       el.className = 'horario-block';
-      el.innerHTML = '<strong></strong><span class="horario-time"></span><i class="horario-resize" data-resize aria-hidden="true"></i>';
+      el.innerHTML = '<strong></strong><span class="horario-time"></span><em class="horario-note"></em><i class="horario-resize" data-resize aria-hidden="true"></i>';
       paintBlock(el, block);
       bindBlock(el);
       return el;
@@ -2877,6 +3026,85 @@
       }
     }
 
+    function seriesMates(seriesId, skipId) {
+      if (!seriesId) {
+        return [];
+      }
+      var mates = [];
+      board.querySelectorAll('.horario-block').forEach(function (block) {
+        if (String(block.dataset.series) === String(seriesId) && String(block.dataset.id) !== String(skipId)) {
+          mates.push(block);
+        }
+      });
+      return mates;
+    }
+
+    var scopeDialog = document.getElementById('horarioScope');
+    var scopeText = document.getElementById('horarioScopeText');
+    var scopeWait = null;
+
+    function finishScope(value) {
+      var wait = scopeWait;
+      scopeWait = null;
+      if (scopeDialog && scopeDialog.open) {
+        scopeDialog.close();
+      }
+      if (wait) {
+        wait(value);
+      }
+    }
+
+    function askScope(text) {
+      return new Promise(function (resolve) {
+        if (!scopeDialog) {
+          resolve('this');
+          return;
+        }
+        if (scopeText) {
+          scopeText.textContent = text;
+        }
+        scopeWait = resolve;
+        scopeDialog.showModal();
+      });
+    }
+
+    ['horarioScopeThis', 'horarioScopeAll', 'horarioScopeCancel', 'horarioScopeClose'].forEach(function (id) {
+      var button = document.getElementById(id);
+      if (!button) {
+        return;
+      }
+      button.addEventListener('click', function () {
+        if (id === 'horarioScopeThis') {
+          finishScope('this');
+        } else if (id === 'horarioScopeAll') {
+          finishScope('all');
+        } else {
+          finishScope('');
+        }
+      });
+    });
+    if (scopeDialog) {
+      scopeDialog.addEventListener('cancel', function (event) {
+        event.preventDefault();
+        finishScope('');
+      });
+    }
+
+    function applyPayload(payload) {
+      var list = payload.blocks && payload.blocks.length ? payload.blocks : [];
+      if (!list.length && payload.block) {
+        list = [payload.block];
+      }
+      var seen = {};
+      list.forEach(function (block) {
+        if (!block || seen[block.id]) {
+          return;
+        }
+        seen[block.id] = true;
+        placeBlock(block);
+      });
+    }
+
     function postForm(action, body) {
       return fetch(form.action, {
         method: 'POST',
@@ -2896,6 +3124,32 @@
       });
     }
 
+    function revertMove(blockEl, previous) {
+      blockEl.dataset.weekday = previous.weekday;
+      blockEl.dataset.start = previous.start;
+      blockEl.dataset.end = previous.end;
+      if (previous.parent) {
+        previous.parent.appendChild(blockEl);
+      }
+      var time = blockEl.querySelector('.horario-time');
+      if (time && blockEl.dataset.startLabel) {
+        blockEl.dataset.startLabel = labelFromMinute(Number(previous.start));
+        blockEl.dataset.endLabel = labelFromMinute(Number(previous.end));
+        time.textContent = blockEl.dataset.startLabel + ' – ' + blockEl.dataset.endLabel;
+      }
+      layoutColumn(previous.parent);
+      layoutColumn(blockEl.parentElement);
+    }
+
+    function labelFromMinute(minute) {
+      if (minute >= 24 * 60) {
+        return '00:00';
+      }
+      var h = Math.floor(minute / 60);
+      var m = minute % 60;
+      return h + ':' + (m < 10 ? '0' : '') + m;
+    }
+
     function saveMove(blockEl, previous) {
       var data = new FormData();
       var token = form.querySelector('input[name="_csrf"]');
@@ -2907,17 +3161,31 @@
       data.append('start_minute', blockEl.dataset.start || '0');
       data.append('end_minute', blockEl.dataset.end || '0');
       data.append('color', blockEl.getAttribute('data-color') || 'lavender');
-      postForm(form.action, data).then(function (payload) {
-        placeBlock(payload.block);
-      }).catch(function () {
-        blockEl.dataset.weekday = previous.weekday;
-        blockEl.dataset.start = previous.start;
-        blockEl.dataset.end = previous.end;
-        if (previous.parent) {
-          previous.parent.appendChild(blockEl);
+      var mates = seriesMates(blockEl.dataset.series, blockEl.dataset.id);
+      var timeChanged = String(previous.start) !== String(blockEl.dataset.start)
+        || String(previous.end) !== String(blockEl.dataset.end);
+      var decide = mates.length && timeChanged
+        ? askScope('Cambiaste el horario de un bloque que está en otros días. ¿Aplicarlo solo a este o a todos?')
+        : Promise.resolve('keep');
+      decide.then(function (scope) {
+        if (!scope) {
+          revertMove(blockEl, previous);
+          return null;
         }
-        layoutColumn(previous.parent);
-        layoutColumn(blockEl.parentElement);
+        if (scope === 'this' || scope === 'all') {
+          data.append('apply_scope', scope);
+        }
+        return postForm(form.action, data);
+      }).then(function (payload) {
+        if (!payload) {
+          return;
+        }
+        applyPayload(payload);
+        if (dayQuery.matches && payload.block && payload.block.weekday) {
+          selectHorarioDay(payload.block.weekday);
+        }
+      }).catch(function () {
+        revertMove(blockEl, previous);
       });
     }
 
@@ -3065,11 +3333,102 @@
 
     board.querySelectorAll('.horario-block').forEach(bindBlock);
     layoutAll();
-    window.addEventListener('resize', layoutAll);
+
+    var daySwitch = document.getElementById('horarioDaySwitch');
+    var dayQuery = window.matchMedia('(max-width: 860px)');
+    var swipe = null;
+
+    function visibleWeekday() {
+      var selected = board.querySelector('.horario-col.is-selected');
+      if (selected) {
+        return selected.dataset.weekday || '1';
+      }
+      var todayCol = board.querySelector('.horario-col.is-today');
+      return (todayCol && todayCol.dataset.weekday) || '1';
+    }
+
+    function selectHorarioDay(weekday) {
+      var day = String(weekday || '1');
+      board.querySelectorAll('.horario-col').forEach(function (col) {
+        col.classList.toggle('is-selected', col.dataset.weekday === day);
+      });
+      if (daySwitch) {
+        daySwitch.querySelectorAll('button').forEach(function (btn) {
+          var on = btn.dataset.weekday === day;
+          btn.classList.toggle('is-active', on);
+          btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+      try {
+        sessionStorage.setItem('lq-horario-day', day);
+      } catch (err) {
+        void err;
+      }
+      layoutAll();
+    }
+
+    function syncDayMode() {
+      if (!dayQuery.matches) {
+        layoutAll();
+        return;
+      }
+      var saved = '';
+      try {
+        saved = sessionStorage.getItem('lq-horario-day') || '';
+      } catch (err) {
+        void err;
+      }
+      selectHorarioDay(saved || visibleWeekday());
+    }
+
+    if (daySwitch) {
+      daySwitch.addEventListener('click', function (event) {
+        var btn = event.target.closest('button');
+        if (!btn) {
+          return;
+        }
+        selectHorarioDay(btn.dataset.weekday);
+      });
+    }
+
+    board.addEventListener('pointerdown', function (event) {
+      if (!dayQuery.matches || event.target.closest('.horario-block')) {
+        swipe = null;
+        return;
+      }
+      swipe = { x: event.clientX, y: event.clientY, id: event.pointerId };
+    });
+
+    board.addEventListener('pointerup', function (event) {
+      if (!swipe || swipe.id !== event.pointerId) {
+        return;
+      }
+      var dx = event.clientX - swipe.x;
+      var dy = event.clientY - swipe.y;
+      swipe = null;
+      if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) {
+        return;
+      }
+      board.dataset.skipClick = '1';
+      var day = Number(visibleWeekday());
+      selectHorarioDay(dx < 0 ? (day % 7) + 1 : ((day + 5) % 7) + 1);
+    });
+
+    if (dayQuery.addEventListener) {
+      dayQuery.addEventListener('change', syncDayMode);
+    }
+    requestAnimationFrame(function () {
+      requestAnimationFrame(syncDayMode);
+    });
+    window.addEventListener('resize', syncDayMode);
 
     board.querySelectorAll('.horario-col').forEach(function (col) {
       col.addEventListener('click', function (event) {
         if (event.target.closest('.horario-block')) {
+          return;
+        }
+        if (board.dataset.skipClick === '1') {
+          board.dataset.skipClick = '0';
           return;
         }
         var y = event.clientY - col.getBoundingClientRect().top;
@@ -3080,7 +3439,10 @@
         if (start > dayEnd - snap) {
           start = dayEnd - snap;
         }
-        var end = Math.min(dayEnd, start + snap);
+        var end = Math.min(dayEnd, start + 60);
+        if (end - start < snap) {
+          end = Math.min(dayEnd, start + snap);
+        }
         openModal({
           weekday: Number(col.dataset.weekday),
           start: start,
@@ -3089,6 +3451,250 @@
       });
     });
 
+    function exportHorarioImage() {
+      layoutAll();
+      var dayNames = [];
+      board.querySelectorAll('.horario-day-name').forEach(function (el) {
+        var name = el.querySelector('span');
+        dayNames.push(name ? name.textContent.trim() : '');
+      });
+      var hours = (dayEnd - dayStart) / 60;
+      var hourH = 78;
+      var headH = 54;
+      var gutter = 78;
+      var colW = 220;
+      var margin = 32;
+      var titleH = 42;
+      var width = margin * 2 + gutter + dayNames.length * colW;
+      var height = margin * 2 + titleH + headH + hours * hourH;
+      var canvas = document.createElement('canvas');
+      var scale = 2;
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      var ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return;
+      }
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#F7F7FB';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#FFFFFF';
+      roundBox(ctx, margin - 12, margin + titleH - 8, width - (margin - 12) * 2, height - margin - titleH - 8, 18);
+      ctx.fill();
+
+      ctx.fillStyle = '#2E3142';
+      ctx.font = '800 26px Manrope, sans-serif';
+      ctx.fillText('Horario', margin, margin + 26);
+
+      var textColor = window.getComputedStyle(document.body).color || '#2E3142';
+      var mutedColor = '#73778C';
+      var sampleTime = board.querySelector('.horario-time');
+      if (sampleTime) {
+        mutedColor = window.getComputedStyle(sampleTime).color || mutedColor;
+      }
+
+      var originX = margin;
+      var originY = margin + titleH;
+      var gridH = hours * hourH;
+
+      dayNames.forEach(function (_, index) {
+        var col = columnFor(index + 1);
+        if (!col || !col.classList.contains('is-today')) {
+          return;
+        }
+        var x = originX + gutter + index * colW;
+        ctx.fillStyle = '#EEF0FF';
+        ctx.fillRect(x, originY + headH, colW, gridH);
+      });
+
+      ctx.fillStyle = '#FBFBFE';
+      ctx.fillRect(originX, originY, gutter, headH);
+      dayNames.forEach(function (name, index) {
+        var x = originX + gutter + index * colW;
+        var isToday = board.querySelector('.horario-col[data-weekday="' + (index + 1) + '"]');
+        isToday = isToday && isToday.classList.contains('is-today');
+        ctx.fillStyle = isToday ? '#EEF0FF' : '#FFFFFF';
+        ctx.fillRect(x, originY, colW, headH);
+        ctx.fillStyle = textColor;
+        ctx.font = '800 18px Manrope, sans-serif';
+        ctx.textAlign = 'left';
+        if (isToday) {
+          var nameWidth = ctx.measureText(name).width;
+          ctx.font = '700 11px Manrope, sans-serif';
+          var pillWidth = ctx.measureText('hoy').width + 14;
+          var rowWidth = nameWidth + 8 + pillWidth;
+          var rowX = x + (colW - rowWidth) / 2;
+          ctx.font = '800 18px Manrope, sans-serif';
+          ctx.fillStyle = textColor;
+          ctx.fillText(name, rowX, originY + 34);
+          roundBox(ctx, rowX + nameWidth + 8, originY + 18, pillWidth, 18, 9);
+          ctx.fillStyle = '#E8E9FF';
+          ctx.fill();
+          ctx.fillStyle = '#6B72D4';
+          ctx.font = '700 11px Manrope, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('hoy', rowX + nameWidth + 8 + pillWidth / 2, originY + 31);
+        } else {
+          ctx.textAlign = 'center';
+          ctx.fillText(name, x + colW / 2, originY + 34);
+        }
+        ctx.textAlign = 'left';
+      });
+
+      for (var h = 0; h <= hours; h++) {
+        var y = originY + headH + h * hourH;
+        ctx.strokeStyle = '#E5E7F2';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(originX + gutter, y);
+        ctx.lineTo(originX + gutter + dayNames.length * colW, y);
+        ctx.stroke();
+        if (h < hours) {
+          ctx.strokeStyle = '#F0F1F8';
+          ctx.beginPath();
+          ctx.moveTo(originX + gutter, y + hourH / 2);
+          ctx.lineTo(originX + gutter + dayNames.length * colW, y + hourH / 2);
+          ctx.stroke();
+        }
+        var minute = dayStart + h * 60;
+        var label = minute >= 24 * 60 ? '00:00' : Math.floor(minute / 60) + ':' + (minute % 60 < 10 ? '0' : '') + (minute % 60);
+        ctx.fillStyle = '#73778C';
+        ctx.font = '600 13px Manrope, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(label, originX + gutter - 10, h === hours ? y - 8 : y + 16);
+        ctx.textAlign = 'left';
+      }
+
+      dayNames.forEach(function (_, index) {
+        var x = originX + gutter + index * colW;
+        ctx.strokeStyle = '#E5E7F2';
+        ctx.beginPath();
+        ctx.moveTo(x, originY);
+        ctx.lineTo(x, originY + headH + gridH);
+        ctx.stroke();
+        var items = [];
+        var col = columnFor(index + 1);
+        if (!col) {
+          return;
+        }
+        col.querySelectorAll('.horario-block').forEach(function (el) {
+          var paint = window.getComputedStyle(el);
+          var accent = '#C9B6E4';
+          var shadowColors = String(paint.boxShadow || '').match(/rgba?\([^)]+\)/g);
+          if (shadowColors && shadowColors.length) {
+            accent = shadowColors[shadowColors.length - 1];
+          }
+          items.push({
+            title: el.dataset.title || '',
+            notes: el.dataset.notes || '',
+            start: Number(el.dataset.start),
+            end: Number(el.dataset.end),
+            lane: Number(el.dataset.lane) || 0,
+            lanes: Math.max(1, Number(el.dataset.lanes) || 1),
+            from: el.dataset.startLabel || '',
+            to: el.dataset.endLabel || '',
+            bg: paint.backgroundColor,
+            accent: accent
+          });
+        });
+        items.sort(function (a, b) {
+          return a.start - b.start;
+        });
+        items.forEach(function (item) {
+          var top = originY + headH + ((item.start - dayStart) / 60) * hourH + 2;
+          var blockH = Math.max(16, ((item.end - item.start) / 60) * hourH - 4);
+          var laneW = colW / item.lanes;
+          var left = x + item.lane * laneW + 4;
+          var blockW = Math.max(12, laneW - 8);
+          ctx.save();
+          roundBox(ctx, left, top, blockW, blockH, 10);
+          ctx.fillStyle = item.bg;
+          ctx.fill();
+          ctx.clip();
+          ctx.fillStyle = item.accent;
+          ctx.fillRect(left, top, 4, blockH);
+          var textX = left + 10;
+          var textMax = blockW - 16;
+          var textY = top + 14;
+          var textBottom = top + blockH - 4;
+          ctx.fillStyle = textColor;
+          ctx.font = '700 12px Manrope, sans-serif';
+          ctx.textAlign = 'left';
+          wrapLines(ctx, item.title, textMax).forEach(function (line) {
+            if (textY > textBottom) {
+              return;
+            }
+            ctx.fillText(line, textX, textY);
+            textY += 14;
+          });
+          if (blockH >= 26 && item.from && textY <= textBottom) {
+            ctx.fillStyle = mutedColor;
+            ctx.font = '600 11px Manrope, sans-serif';
+            ctx.fillText(item.from + ' – ' + item.to, textX, textY);
+            textY += 13;
+          }
+          if (item.notes && blockH >= 40 && textY <= textBottom) {
+            ctx.fillStyle = mutedColor;
+            ctx.font = '500 11px Manrope, sans-serif';
+            wrapLines(ctx, item.notes, textMax).forEach(function (line) {
+              if (textY > textBottom) {
+                return;
+              }
+              ctx.fillText(line, textX, textY);
+              textY += 13;
+            });
+          }
+          ctx.restore();
+        });
+      });
+
+      canvas.toBlob(function (blob) {
+        if (!blob) {
+          return;
+        }
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'horario.png';
+        link.click();
+        window.setTimeout(function () {
+          URL.revokeObjectURL(link.href);
+        }, 1500);
+      }, 'image/png');
+    }
+
+    function roundBox(ctx, x, y, w, h, r) {
+      var radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
+    function wrapLines(ctx, text, maxWidth) {
+      var words = String(text || '').trim().split(/\s+/);
+      var lines = [];
+      var line = '';
+      words.forEach(function (word) {
+        if (!word) {
+          return;
+        }
+        var next = line ? line + ' ' + word : word;
+        if (line && ctx.measureText(next).width > maxWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = next;
+        }
+      });
+      if (line) {
+        lines.push(line);
+      }
+      return lines;
+    }
+
     var addBtn = document.getElementById('horarioAdd');
     if (addBtn) {
       addBtn.addEventListener('click', function () {
@@ -3096,6 +3702,11 @@
         var weekday = todayCol ? Number(todayCol.dataset.weekday) : 1;
         openModal({ weekday: weekday, start: 9 * 60, end: 10 * 60 });
       });
+    }
+
+    var exportBtn = document.getElementById('horarioExport');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', exportHorarioImage);
     }
 
     if (dayInput) {
@@ -3134,15 +3745,27 @@
           body.append('repeat_days[]', cb.value);
         }
       });
-      postForm(form.action, body).then(function (payload) {
-        placeBlock(payload.block);
-        var extra = payload.blocks || [];
-        extra.forEach(function (block) {
-          if (!block || String(block.id) === String(payload.block && payload.block.id)) {
-            return;
-          }
-          placeBlock(block);
-        });
+      var current = editingId ? board.querySelector('.horario-block[data-id="' + editingId + '"]') : null;
+      var mates = current ? seriesMates(current.dataset.series, editingId) : [];
+      var decide = mates.length
+        ? askScope('Este bloque también está en otros días. ¿Aplicar el nombre, el horario y el color solo a este o a todos? Cada uno se queda en su día.')
+        : Promise.resolve('keep');
+      decide.then(function (scope) {
+        if (!scope) {
+          return null;
+        }
+        if (scope === 'this' || scope === 'all') {
+          body.append('apply_scope', scope);
+        }
+        return postForm(form.action, body);
+      }).then(function (payload) {
+        if (!payload) {
+          return;
+        }
+        applyPayload(payload);
+        if (dayQuery.matches && payload.block && payload.block.weekday) {
+          selectHorarioDay(payload.block.weekday);
+        }
         dialog.close();
       }).catch(function (err) {
         showError(err.message || 'No se pudo guardar.');
@@ -3154,20 +3777,39 @@
         if (!editingId) {
           return;
         }
-        if (!window.confirm('¿Eliminar este bloque del horario?')) {
-          return;
-        }
-        var data = new FormData();
-        var token = form.querySelector('input[name="_csrf"]');
-        data.append('_csrf', token ? token.value : '');
-        data.append('r', '/horario/' + editingId + '/delete');
-        postForm(form.action, data).then(function () {
-          var el = board.querySelector('.horario-block[data-id="' + editingId + '"]');
-          var col = el ? el.parentElement : null;
-          if (el) {
-            el.remove();
+        var current = board.querySelector('.horario-block[data-id="' + editingId + '"]');
+        var mates = current ? seriesMates(current.dataset.series, editingId) : [];
+        var decide = mates.length
+          ? askScope('¿Eliminar solo este bloque o también los de los otros días?')
+          : (window.confirm('¿Eliminar este bloque del horario?') ? Promise.resolve('this') : Promise.resolve(''));
+        decide.then(function (scope) {
+          if (!scope) {
+            return null;
           }
-          layoutColumn(col);
+          var data = new FormData();
+          var token = form.querySelector('input[name="_csrf"]');
+          data.append('_csrf', token ? token.value : '');
+          data.append('r', '/horario/' + editingId + '/delete');
+          data.append('apply_scope', scope === 'all' ? 'all' : 'this');
+          return postForm(form.action, data);
+        }).then(function (payload) {
+          if (!payload) {
+            return;
+          }
+          var ids = payload.ids && payload.ids.length ? payload.ids : [editingId];
+          var columns = [];
+          ids.forEach(function (id) {
+            var el = board.querySelector('.horario-block[data-id="' + id + '"]');
+            if (!el) {
+              return;
+            }
+            var col = el.parentElement;
+            if (col && columns.indexOf(col) === -1) {
+              columns.push(col);
+            }
+            el.remove();
+          });
+          columns.forEach(layoutColumn);
           dialog.close();
         }).catch(function (err) {
           showError(err.message || 'No se pudo eliminar.');
@@ -3196,6 +3838,8 @@
     initHorizonEditModal();
     initHabitEditModal();
     initHabitDragReorder();
+    initExerciseDragReorder();
+    initExerciseRename();
     initTaskKindDrag();
     initRuleModals();
     initMilestoneModal();

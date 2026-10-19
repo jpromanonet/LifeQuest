@@ -6,7 +6,7 @@ final class ScheduleService
 {
     public const DAY_START = 6 * 60;
     public const DAY_END = 24 * 60;
-    public const SNAP = 60;
+    public const SNAP = 30;
 
     public const DAY_LABELS = [
         1 => 'Lunes',
@@ -32,15 +32,37 @@ final class ScheduleService
     public const COLORS = [
         'lavender' => 'Lavanda',
         'lilac' => 'Lila',
+        'grape' => 'Uva',
+        'plum' => 'Ciruela',
         'sky' => 'Cielo',
+        'blue' => 'Azul',
+        'slate' => 'Pizarra',
         'aqua' => 'Agua',
+        'teal' => 'Turquesa',
         'mint' => 'Menta',
         'sage' => 'Salvia',
+        'lime' => 'Lima',
+        'kiwi' => 'Kiwi',
         'yellow' => 'Sol',
+        'lemon' => 'Limón',
+        'amber' => 'Ámbar',
         'peach' => 'Durazno',
+        'apricot' => 'Damasco',
         'coral' => 'Coral',
         'rose' => 'Rosa',
+        'blush' => 'Rubor',
+        'berry' => 'Frambuesa',
+        'cherry' => 'Cereza',
+        'red' => 'Rojo',
+        'ruby' => 'Rubí',
+        'crimson' => 'Carmesí',
+        'brick' => 'Ladrillo',
+        'bordo' => 'Bordó',
+        'wine' => 'Vino',
         'sand' => 'Arena',
+        'cocoa' => 'Cacao',
+        'stone' => 'Piedra',
+        'fog' => 'Niebla',
         'primary' => 'Índigo',
     ];
 
@@ -63,45 +85,43 @@ final class ScheduleService
                   start_minute SMALLINT UNSIGNED NOT NULL,
                   end_minute SMALLINT UNSIGNED NOT NULL,
                   color VARCHAR(24) NOT NULL DEFAULT 'lavender',
+                  series_id BIGINT UNSIGNED NULL,
                   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                   deleted_at DATETIME NULL,
                   KEY idx_schedule_user_day (user_id, weekday, deleted_at),
+                  KEY idx_schedule_series (user_id, series_id),
                   CONSTRAINT fk_schedule_blocks_user FOREIGN KEY (user_id) REFERENCES users(id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
         }
-        $this->snapExistingToHours();
+        if (!$pdo->query("SHOW COLUMNS FROM schedule_blocks LIKE 'series_id'")->fetch()) {
+            $pdo->exec('ALTER TABLE schedule_blocks ADD COLUMN series_id BIGINT UNSIGNED NULL AFTER color');
+            $pdo->exec('ALTER TABLE schedule_blocks ADD KEY idx_schedule_series (user_id, series_id)');
+        }
+        $this->backfillSeries($pdo);
         $done = true;
     }
 
-    /** Bloques viejos de 30 minutos pasan a la hora más cercana. */
-    private function snapExistingToHours(): void
+    private function backfillSeries(\PDO $pdo): void
     {
-        $rows = Database::pdo()->query(
-            'SELECT id, start_minute, end_minute
+        $rows = $pdo->query(
+            'SELECT id, user_id, title
              FROM schedule_blocks
-             WHERE deleted_at IS NULL
-               AND (MOD(start_minute, 60) <> 0 OR MOD(end_minute, 60) <> 0)'
+             WHERE series_id IS NULL AND deleted_at IS NULL
+             ORDER BY id ASC'
         )->fetchAll();
         if (!$rows) {
             return;
         }
-        $stmt = Database::pdo()->prepare(
-            'UPDATE schedule_blocks
-             SET start_minute = :start_minute, end_minute = :end_minute, updated_at = UTC_TIMESTAMP()
-             WHERE id = :id'
-        );
+        $groups = [];
+        $stmt = $pdo->prepare('UPDATE schedule_blocks SET series_id = :sid WHERE id = :id');
         foreach ($rows as $row) {
-            $start = (int) (round(((int) $row['start_minute']) / 60) * 60);
-            $end = (int) (round(((int) $row['end_minute']) / 60) * 60);
-            $start = max(self::DAY_START, min(self::DAY_END - self::SNAP, $start));
-            $end = max($start + self::SNAP, min(self::DAY_END, $end));
-            $stmt->execute([
-                'start_minute' => $start,
-                'end_minute' => $end,
-                'id' => (int) $row['id'],
-            ]);
+            $key = (int) $row['user_id'] . "\0" . mb_strtolower(trim((string) $row['title']));
+            if (!isset($groups[$key])) {
+                $groups[$key] = (int) $row['id'];
+            }
+            $stmt->execute(['sid' => $groups[$key], 'id' => (int) $row['id']]);
         }
     }
 
@@ -116,7 +136,7 @@ final class ScheduleService
             $byDay[$d] = [];
         }
         $stmt = Database::pdo()->prepare(
-            'SELECT id, weekday, title, notes, start_minute, end_minute, color
+            'SELECT id, weekday, title, notes, start_minute, end_minute, color, series_id
              FROM schedule_blocks
              WHERE user_id = :uid AND deleted_at IS NULL
              ORDER BY weekday ASC, start_minute ASC, id ASC'
@@ -156,6 +176,14 @@ final class ScheduleService
             'color' => $fields['color'],
         ]);
         $id = (int) Database::pdo()->lastInsertId();
+        $seriesId = (int) ($data['series_id'] ?? 0);
+        if ($seriesId < 1) {
+            $seriesId = $id;
+        }
+        $link = Database::pdo()->prepare(
+            'UPDATE schedule_blocks SET series_id = :sid WHERE id = :id AND user_id = :uid'
+        );
+        $link->execute(['sid' => $seriesId, 'id' => $id, 'uid' => $userId]);
         $block = $this->find($userId, $id);
         if ($block === null) {
             throw new RuntimeException('No se pudo leer el bloque creado.');
@@ -163,8 +191,11 @@ final class ScheduleService
         return $block;
     }
 
-    /** @param array<string, mixed> $data */
-    public function update(int $userId, int $id, array $data): array
+    /**
+     * @param array<string, mixed> $data
+     * @param bool $detach  Solo este: lo separa de la serie para que un cambio posterior no lo pise.
+     */
+    public function update(int $userId, int $id, array $data, bool $detach = false): array
     {
         $this->ensureTable();
         if ($this->find($userId, $id) === null) {
@@ -188,11 +219,63 @@ final class ScheduleService
             'id' => $id,
             'uid' => $userId,
         ]);
+        if ($detach) {
+            $split = Database::pdo()->prepare(
+                'UPDATE schedule_blocks SET series_id = id WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
+            );
+            $split->execute(['id' => $id, 'uid' => $userId]);
+        }
         $block = $this->find($userId, $id);
         if ($block === null) {
             throw new RuntimeException('No se pudo leer el bloque.');
         }
         return $block;
+    }
+
+    /**
+     * Mismo título, horario, nota y color en toda la serie. Cada día conserva su lugar.
+     *
+     * @param array<string, mixed> $data
+     * @return list<array<string, mixed>>
+     */
+    public function updateSeries(int $userId, int $id, array $data): array
+    {
+        $this->ensureTable();
+        $current = $this->find($userId, $id);
+        if ($current === null) {
+            throw new InvalidArgumentException('No encontré ese bloque.');
+        }
+        $fields = $this->normalize($data);
+        $seriesId = (int) ($current['series_id'] ?: $id);
+        $stmt = Database::pdo()->prepare(
+            'UPDATE schedule_blocks
+             SET title = :title, notes = :notes,
+                 start_minute = :start_minute, end_minute = :end_minute, color = :color,
+                 updated_at = UTC_TIMESTAMP()
+             WHERE user_id = :uid AND series_id = :sid AND deleted_at IS NULL'
+        );
+        $stmt->execute([
+            'title' => $fields['title'],
+            'notes' => $fields['notes'],
+            'start_minute' => $fields['start_minute'],
+            'end_minute' => $fields['end_minute'],
+            'color' => $fields['color'],
+            'uid' => $userId,
+            'sid' => $seriesId,
+        ]);
+        if ($fields['weekday'] !== (int) $current['weekday']) {
+            $move = Database::pdo()->prepare(
+                'UPDATE schedule_blocks
+                 SET weekday = :weekday, updated_at = UTC_TIMESTAMP()
+                 WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
+            );
+            $move->execute([
+                'weekday' => $fields['weekday'],
+                'id' => $id,
+                'uid' => $userId,
+            ]);
+        }
+        return $this->seriesBlocks($userId, $seriesId);
     }
 
     /**
@@ -224,6 +307,7 @@ final class ScheduleService
                 'start_minute' => $source['start_minute'],
                 'end_minute' => $source['end_minute'],
                 'color' => $source['color'],
+                'series_id' => (int) ($source['series_id'] ?: $source['id']),
             ]);
             $taken[$dow] = true;
         }
@@ -272,16 +356,63 @@ final class ScheduleService
 
     public function delete(int $userId, int $id): void
     {
-        $this->ensureTable();
-        $stmt = Database::pdo()->prepare(
-            'UPDATE schedule_blocks
-             SET deleted_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP()
-             WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
-        );
-        $stmt->execute(['id' => $id, 'uid' => $userId]);
-        if ($stmt->rowCount() < 1) {
+        $ids = $this->deleteIds($userId, [$id]);
+        if ($ids === []) {
             throw new InvalidArgumentException('No encontré ese bloque.');
         }
+    }
+
+    /** @return list<int> */
+    public function deleteSeries(int $userId, int $id): array
+    {
+        $current = $this->find($userId, $id);
+        if ($current === null) {
+            throw new InvalidArgumentException('No encontré ese bloque.');
+        }
+        $seriesId = (int) ($current['series_id'] ?: $id);
+        $ids = [];
+        foreach ($this->seriesBlocks($userId, $seriesId) as $block) {
+            $ids[] = (int) $block['id'];
+        }
+        return $this->deleteIds($userId, $ids);
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return list<int>
+     */
+    private function deleteIds(int $userId, array $ids): array
+    {
+        $this->ensureTable();
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if ($ids === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = Database::pdo()->prepare(
+            "UPDATE schedule_blocks
+             SET deleted_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP()
+             WHERE user_id = ? AND deleted_at IS NULL AND id IN ($placeholders)"
+        );
+        $stmt->execute(array_merge([$userId], $ids));
+        return $ids;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function seriesBlocks(int $userId, int $seriesId): array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT id, weekday, title, notes, start_minute, end_minute, color, series_id
+             FROM schedule_blocks
+             WHERE user_id = :uid AND series_id = :sid AND deleted_at IS NULL
+             ORDER BY weekday ASC, start_minute ASC, id ASC'
+        );
+        $stmt->execute(['uid' => $userId, 'sid' => $seriesId]);
+        $blocks = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $blocks[] = $this->present($row);
+        }
+        return $blocks;
     }
 
     /** @return array<string, mixed>|null */
@@ -289,7 +420,7 @@ final class ScheduleService
     {
         $this->ensureTable();
         $stmt = Database::pdo()->prepare(
-            'SELECT id, weekday, title, notes, start_minute, end_minute, color
+            'SELECT id, weekday, title, notes, start_minute, end_minute, color, series_id
              FROM schedule_blocks
              WHERE id = :id AND user_id = :uid AND deleted_at IS NULL
              LIMIT 1'
@@ -372,7 +503,7 @@ final class ScheduleService
         $start = (int) (round($start / self::SNAP) * self::SNAP);
         $end = (int) (round($end / self::SNAP) * self::SNAP);
         if ($start < self::DAY_START || $end > self::DAY_END || $end - $start < self::SNAP) {
-            throw new InvalidArgumentException('El horario tiene que ir de 6:00 a 00:00, en horas enteras.');
+            throw new InvalidArgumentException('El horario tiene que ir de 6:00 a 00:00, de a 30 minutos.');
         }
         $color = (string) ($data['color'] ?? 'lavender');
         if (!isset(self::COLORS[$color])) {
@@ -409,6 +540,7 @@ final class ScheduleService
             'start_minute' => $start,
             'end_minute' => $end,
             'color' => isset(self::COLORS[(string) $row['color']]) ? (string) $row['color'] : 'lavender',
+            'series_id' => (int) ($row['series_id'] ?: $row['id']),
             'start_label' => self::formatMinute($start),
             'end_label' => self::formatMinute($end),
         ];

@@ -44,6 +44,27 @@ $todayHoursPct = $todayMinTotal > 0 ? (int) min(100, round(($todayMinDone / $tod
 $weekHoursPct = $weekMinTotal > 0 ? (int) min(100, round(($weekMinDone / $weekMinTotal) * 100)) : 0;
 $hasTodayHours = $todayMinTotal > 0;
 $hasWeekHours = $weekMinTotal > 0;
+$training = $training ?? [
+    'date' => $todayDate,
+    'profile' => ['has_routine' => false],
+    'disciplines' => [],
+    'exercises' => [],
+    'latest_weight' => null,
+    'bmi' => null,
+    'bmi_label' => '',
+    'metrics' => ['km_week' => 0, 'classes_done' => 0, 'classes_planned' => 0, 'routine_done' => 0, 'routine_total' => 0],
+];
+$trainDate = (string) ($training['date'] ?? $todayDate);
+$trainHasRoutine = !empty($training['profile']['has_routine']);
+$trainToday = [];
+foreach ($training['disciplines'] ?? [] as $disc) {
+    if (!empty($disc['planned_today'])) {
+        $trainToday[] = $disc;
+    }
+}
+$trainFmt = static function (float $n): string {
+    return number_format($n, 1, ',', '.');
+};
 ?>
 <section class="page-header">
     <div>
@@ -185,6 +206,96 @@ $hasWeekHours = $weekMinTotal > 0;
             include dirname(__DIR__) . '/partials/task_day_list.php';
             ?>
         </div>
+    </article>
+
+    <article class="card today-training">
+        <div class="card-header">
+            <h2>Entrenamiento de hoy</h2>
+            <a class="text-link" href="<?= e(url('/deportes?date=' . $trainDate)) ?>">Ver todo →</a>
+        </div>
+        <p class="today-training-meta muted small">
+            <span>Peso <strong><?= $training['latest_weight'] !== null ? e($trainFmt((float) $training['latest_weight'])) . ' kg' : '—' ?></strong></span>
+            <span>BMI <strong><?= $training['bmi'] !== null ? e($trainFmt((float) $training['bmi'])) . ' ' . e((string) $training['bmi_label']) : '—' ?></strong></span>
+            <span>Km semana <strong><?= e($trainFmt((float) ($training['metrics']['km_week'] ?? 0))) ?></strong></span>
+            <span>Clases <strong><?= (int) ($training['metrics']['classes_done'] ?? 0) ?>/<?= (int) ($training['metrics']['classes_planned'] ?? 0) ?></strong></span>
+        </p>
+        <?php if ($trainToday === [] && !$trainHasRoutine): ?>
+            <p class="empty-state">Hoy no hay clase ni kilómetros pautados. Las disciplinas se arman en Entrenamiento y no entran en Hábitos.</p>
+        <?php else: ?>
+            <div class="today-training-grid">
+                <div>
+                    <h3>Hoy</h3>
+                    <?php if ($trainToday === []): ?>
+                        <p class="muted small">Sin clase ni kilómetros para este día.</p>
+                    <?php else: ?>
+                        <ul class="sport-disciplines">
+                            <?php foreach ($trainToday as $disc): ?>
+                                <li class="sport-discipline">
+                                    <div class="sport-discipline-copy">
+                                        <strong><?= e((string) $disc['name']) ?></strong>
+                                        <span class="muted small"><?= $disc['kind'] === 'distance' ? 'Kilómetros' : 'Clase' ?></span>
+                                    </div>
+                                    <div class="sport-discipline-action">
+                                        <?php if ($disc['kind'] === 'distance'): ?>
+                                            <form method="post" action="<?= e(form_action('/deportes/' . $disc['id'] . '/log')) ?>" class="sport-km-form">
+                                                <?= csrf_field() ?>
+                                                <?= route_field('/deportes/' . $disc['id'] . '/log') ?>
+                                                <input type="hidden" name="date" value="<?= e($trainDate) ?>">
+                                                <input type="hidden" name="redirect" value="/today">
+                                                <label>
+                                                    <span class="sr-only">Kilómetros de <?= e((string) $disc['name']) ?></span>
+                                                    <input type="number" name="quantity" min="0" max="300" step="0.1" inputmode="decimal" value="<?= $disc['quantity'] !== null ? e((string) $disc['quantity']) : '' ?>" placeholder="0">
+                                                </label>
+                                                <button type="submit" class="btn btn-ghost btn-sm">km</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <form method="post" action="<?= e(form_action('/deportes/' . $disc['id'] . '/log')) ?>">
+                                                <?= csrf_field() ?>
+                                                <?= route_field('/deportes/' . $disc['id'] . '/log') ?>
+                                                <input type="hidden" name="date" value="<?= e($trainDate) ?>">
+                                                <input type="hidden" name="redirect" value="/today">
+                                                <input type="hidden" name="attended" value="<?= !empty($disc['attended']) ? '0' : '1' ?>">
+                                                <button type="submit" class="btn <?= !empty($disc['attended']) ? 'btn-primary' : 'btn-ghost' ?> btn-sm"><?= !empty($disc['attended']) ? 'Fui' : 'Marcar que fui' ?></button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <h3>Rutina</h3>
+                    <?php if (!$trainHasRoutine): ?>
+                        <p class="muted small">Sin rutina personal. Si la activás, se tacha acá y no cuenta en Hábitos.</p>
+                    <?php elseif (($training['exercises'] ?? []) === []): ?>
+                        <p class="muted small">Todavía no hay ejercicios. Sumalos en Entrenamiento.</p>
+                    <?php else: ?>
+                        <ul class="habit-list">
+                            <?php foreach ($training['exercises'] as $index => $exercise): ?>
+                                <li class="habit-row<?= !empty($exercise['done']) ? ' is-done' : '' ?>" data-color-group="<?= habit_color_group($index + 1) ?>">
+                                    <span class="habit-num"><?= $index + 1 ?></span>
+                                    <span class="habit-meta">
+                                        <span class="habit-name"><?= e((string) $exercise['name']) ?></span>
+                                        <span class="muted small">×<?= (int) ($exercise['reps'] ?? 10) ?></span>
+                                    </span>
+                                    <form method="post" action="<?= e(form_action('/deportes/exercises/' . $exercise['id'] . '/toggle')) ?>" class="habit-toggle-form">
+                                        <?= csrf_field() ?>
+                                        <?= route_field('/deportes/exercises/' . $exercise['id'] . '/toggle') ?>
+                                        <input type="hidden" name="date" value="<?= e($trainDate) ?>">
+                                        <input type="hidden" name="redirect" value="/today">
+                                        <label class="check-toggle" title="Marcar hecho">
+                                            <input type="checkbox" <?= !empty($exercise['done']) ? 'checked' : '' ?> onchange="this.form.submit()" aria-label="<?= e((string) $exercise['name']) ?>">
+                                            <span></span>
+                                        </label>
+                                    </form>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
     </article>
 
     <article class="card year-progress-card today-panel today-panel--bottom">

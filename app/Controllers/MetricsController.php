@@ -168,19 +168,11 @@ final class MetricsController
     private function filtersFromRequest(): array
     {
         $year = (int) (input('year') ?: now_local()->format('Y'));
-        $compareRaw = input('compare_year');
-        $compareYear = null;
-        if ($compareRaw !== null && $compareRaw !== '') {
-            $compareYear = (int) $compareRaw;
-            if ($compareYear === $year) {
-                $compareYear = $year - 1;
-            }
-        }
 
         return [
             'year' => $year,
-            'compare_year' => $compareYear,
             'area_id' => input('area') ?: input('area_id') ?: null,
+            'section' => input('section') ?: 'all',
             'status' => input('status') ?: null,
             'priority' => input('priority') ?: null,
             'from' => input('from') ?: null,

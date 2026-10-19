@@ -84,6 +84,20 @@ $router->post('/horario', [$horario, 'store']);
 $router->post('/horario/{id}/delete', [$horario, 'destroy']);
 $router->post('/horario/{id}', [$horario, 'update']);
 
+$sports = new SportsController();
+$router->get('/deportes', [$sports, 'index']);
+$router->post('/deportes/body', [$sports, 'saveBody']);
+$router->post('/deportes/routine', [$sports, 'setRoutine']);
+$router->post('/deportes/exercises', [$sports, 'storeExercise']);
+$router->post('/deportes/exercises/reorder', [$sports, 'reorderExercises']);
+$router->post('/deportes/exercises/{id}/reps', [$sports, 'updateExerciseReps']);
+$router->post('/deportes/exercises/{id}/rename', [$sports, 'renameExercise']);
+$router->post('/deportes/exercises/{id}/toggle', [$sports, 'toggleExercise']);
+$router->post('/deportes/exercises/{id}/delete', [$sports, 'destroyExercise']);
+$router->post('/deportes', [$sports, 'store']);
+$router->post('/deportes/{id}/log', [$sports, 'log']);
+$router->post('/deportes/{id}/delete', [$sports, 'destroy']);
+
 $rules = new RulesController();
 $router->get('/rules', [$rules, 'index']);
 $router->post('/rules', [$rules, 'storeRule']);

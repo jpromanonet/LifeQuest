@@ -14,11 +14,22 @@ $span = max(1, $dayEnd - $dayStart);
 $hourCount = (int) ($span / 60);
 ?>
 <section class="page-header with-actions">
-    <div>
+    <div class="horario-heading">
         <h1>Horario</h1>
         <p class="muted">Tu semana fija, como cuando ibas al colegio. Tocá un hueco para sumar un bloque.</p>
     </div>
-    <button type="button" class="btn btn-primary" id="horarioAdd">+ Bloque</button>
+    <div class="btn-row horario-actions">
+        <button type="button" class="btn btn-ghost" id="horarioExport">
+            <svg class="horario-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/></svg>
+            <span class="horario-btn-long">Exportar imagen</span>
+            <span class="horario-btn-short">Exportar</span>
+        </button>
+        <button type="button" class="btn btn-primary" id="horarioAdd">
+            <svg class="horario-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span class="horario-btn-long">+ Bloque</span>
+            <span class="horario-btn-short">Bloque</span>
+        </button>
+    </div>
 </section>
 
 <section
@@ -29,6 +40,20 @@ $hourCount = (int) ($span / 60);
     data-snap="<?= (int) $snap ?>"
     style="--horario-hours: <?= (int) $hourCount ?>"
 >
+    <nav class="horario-day-switch" id="horarioDaySwitch" aria-label="Elegir día">
+        <?php for ($day = 1; $day <= 7; $day++): ?>
+            <button
+                type="button"
+                class="horario-day-btn<?= $day === $todayWeekday ? ' is-today is-active' : '' ?>"
+                data-weekday="<?= $day ?>"
+                aria-label="<?= e($dayLabels[$day]) ?>"
+                aria-pressed="<?= $day === $todayWeekday ? 'true' : 'false' ?>"
+            >
+                <span><?= e($dayShort[$day]) ?></span>
+                <?php if ($day === $todayWeekday): ?><i aria-hidden="true"></i><?php endif; ?>
+            </button>
+        <?php endfor; ?>
+    </nav>
     <div class="horario-scroll">
         <div class="horario-head">
             <div class="horario-corner"></div>
@@ -52,7 +77,7 @@ $hourCount = (int) ($span / 60);
             </div>
             <?php for ($day = 1; $day <= 7; $day++): ?>
                 <div
-                    class="horario-col<?= $day === $todayWeekday ? ' is-today' : '' ?>"
+                    class="horario-col<?= $day === $todayWeekday ? ' is-today is-selected' : '' ?>"
                     data-weekday="<?= $day ?>"
                     data-day-label="<?= e($dayLabels[$day]) ?>"
                 >
@@ -71,6 +96,7 @@ $hourCount = (int) ($span / 60);
                             data-title="<?= e((string) $block['title']) ?>"
                             data-notes="<?= e((string) $block['notes']) ?>"
                             data-weekday="<?= $day ?>"
+                            data-series="<?= (int) ($block['series_id'] ?? $block['id']) ?>"
                             data-start="<?= $start ?>"
                             data-end="<?= $end ?>"
                             data-start-label="<?= e((string) $block['start_label']) ?>"
@@ -79,6 +105,7 @@ $hourCount = (int) ($span / 60);
                         >
                             <strong><?= e((string) $block['title']) ?></strong>
                             <span class="horario-time"><?= e((string) $block['start_label']) ?> – <?= e((string) $block['end_label']) ?></span>
+                            <em class="horario-note"><?= e((string) $block['notes']) ?></em>
                             <i class="horario-resize" data-resize aria-hidden="true"></i>
                         </article>
                     <?php endforeach; ?>
@@ -160,4 +187,19 @@ $hourCount = (int) ($span / 60);
             </span>
         </div>
     </form>
+</dialog>
+
+<dialog class="modal horario-scope" id="horarioScope" aria-labelledby="horarioScopeTitle">
+    <div class="stack-form">
+        <div class="modal-head">
+            <h2 id="horarioScopeTitle">Este bloque se repite</h2>
+            <button type="button" class="icon-btn" id="horarioScopeClose" aria-label="Cerrar">×</button>
+        </div>
+        <p id="horarioScopeText">¿Aplicar el cambio solo a este día o a todos?</p>
+        <div class="horario-scope-actions">
+            <button type="button" class="btn btn-primary" id="horarioScopeThis">Solo este</button>
+            <button type="button" class="btn btn-ghost" id="horarioScopeAll">Todos los días</button>
+            <button type="button" class="btn btn-ghost" id="horarioScopeCancel">Cancelar</button>
+        </div>
+    </div>
 </dialog>

@@ -39,7 +39,7 @@ $habitDayUrl = static function (string $date) use ($realTodayDate): string {
     <div class="habit-day-bar">
         <label class="habit-day-select-wrap" for="habitDaySelect">
             <span class="muted small">Día</span>
-            <select id="habitDaySelect" class="habit-day-select" aria-label="Elegir día de la semana">
+            <select id="habitDaySelect" class="habit-day-select" data-day-select aria-label="Elegir día de la semana">
                 <?php foreach ($habitWeekDays as $day): ?>
                     <option
                         value="<?= e($habitDayUrl((string) $day['date'])) ?>"

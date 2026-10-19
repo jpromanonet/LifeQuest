@@ -82,6 +82,7 @@ final class MetricsService
             'water' => $this->habits->waterStats($userId, $today),
             'fruit' => $this->habits->fruitStats($userId, $today),
             'friends' => (new FriendService())->stats($userId),
+            'training' => (new SportService())->metricsSnapshot($userId, $today, $year),
             'catalog' => MetricCatalog::byArea(),
             'consolidated_catalog' => MetricCatalog::consolidated(),
             'catalog_metrics' => $this->catalogMetrics($userId, $year, $today),
