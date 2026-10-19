@@ -78,6 +78,12 @@ $router->post('/weekly/{id}/toggle', [$weekly, 'toggle']);
 $router->post('/weekly/{id}/image', [$weekly, 'image']);
 $router->post('/weekly/{id}/steps', [$weekly, 'addStep']);
 
+$horario = new ScheduleController();
+$router->get('/horario', [$horario, 'index']);
+$router->post('/horario', [$horario, 'store']);
+$router->post('/horario/{id}/delete', [$horario, 'destroy']);
+$router->post('/horario/{id}', [$horario, 'update']);
+
 $rules = new RulesController();
 $router->get('/rules', [$rules, 'index']);
 $router->post('/rules', [$rules, 'storeRule']);

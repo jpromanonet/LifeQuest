@@ -160,6 +160,14 @@ try {
     }
     $messages[] = sprintf('Objetivo fijo "Leer N libros en el año" (%d por defecto) asegurado en %d años.', BookService::DEFAULT_TARGET, $bookYears);
 
+    $scheduleExists = $pdo->query("SHOW TABLES LIKE 'schedule_blocks'")->fetch();
+    if (!$scheduleExists) {
+        (new ScheduleService())->ensureTable();
+        $messages[] = 'Tabla schedule_blocks creada (Horario).';
+    } else {
+        $messages[] = 'Tabla schedule_blocks ya existe.';
+    }
+
     $weeklyExists = $pdo->query("SHOW TABLES LIKE 'weekly_tasks'")->fetch();
     if (!$weeklyExists) {
         (new WeeklyPlanService())->ensureTable();

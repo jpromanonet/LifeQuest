@@ -32,9 +32,9 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=76">
+    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=81">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-    <script src="<?= e(url('/assets/js/app.js')) ?>?v=76" defer></script>
+    <script src="<?= e(url('/assets/js/app.js')) ?>?v=82" defer></script>
 </head>
 <body class="app-body" data-app-index="<?= e(base_path() . '/index.php') ?>">
 <div class="app-shell">
@@ -67,6 +67,7 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
                 'today' => ['Hoy', '/today', 'home'],
                 'goals' => ['Objetivos', '/goals', 'target'],
                 'weekly' => ['Plan semanal', '/weekly', 'week'],
+                'horario' => ['Horario', '/horario', 'schedule'],
                 'habits' => ['Hábitos', '/habits', 'check'],
                 'milestones' => ['Hitos', '/milestones', 'milestone'],
                 'friends' => ['Amigos/as', '/friends', 'friends'],

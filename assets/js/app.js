@@ -483,7 +483,7 @@
   }
 
   function syncRepeatChips(form) {
-    if (!form) {
+    if (!form || form.id === 'horarioForm') {
       return;
     }
     var chips = form.querySelectorAll('input[name="repeat_days[]"]');
@@ -2644,6 +2644,538 @@
     window.setTimeout(restore, 120);
   }
 
+  function initHorario() {
+    var board = document.getElementById('horarioBoard');
+    var dialog = document.getElementById('horarioModal');
+    var form = document.getElementById('horarioForm');
+    if (!board || !dialog || !form) {
+      return;
+    }
+
+    var dayStart = Number(board.dataset.dayStart) || 360;
+    var dayEnd = Number(board.dataset.dayEnd) || 1440;
+    var snap = Number(board.dataset.snap) || 60;
+    var titleInput = document.getElementById('horarioTitle');
+    var notesInput = document.getElementById('horarioNotes');
+    var dayInput = document.getElementById('horarioWeekday');
+    var startInput = document.getElementById('horarioStart');
+    var endInput = document.getElementById('horarioEnd');
+    var routeInput = document.getElementById('horarioRoute');
+    var errorEl = document.getElementById('horarioError');
+    var deleteBtn = document.getElementById('horarioDelete');
+    var heading = document.getElementById('horarioModalTitle');
+    var editingId = 0;
+
+    function hourPx() {
+      var col = board.querySelector('.horario-col');
+      var hours = (dayEnd - dayStart) / 60;
+      if (!col || hours < 1) {
+        return 40;
+      }
+      var height = col.getBoundingClientRect().height;
+      return height > 0 ? height / hours : 40;
+    }
+
+    function minutesToTop(minute) {
+      return ((minute - dayStart) / 60) * hourPx();
+    }
+
+    function snapMinute(minute) {
+      return Math.round(minute / snap) * snap;
+    }
+
+    function showError(message) {
+      if (!errorEl) {
+        return;
+      }
+      errorEl.hidden = !message;
+      errorEl.textContent = message || '';
+    }
+
+    function layoutColumn(col) {
+      if (!col) {
+        return;
+      }
+      var blocks = Array.prototype.slice.call(col.querySelectorAll('.horario-block'));
+      blocks.sort(function (a, b) {
+        var byStart = Number(a.dataset.start) - Number(b.dataset.start);
+        return byStart || Number(a.dataset.id) - Number(b.dataset.id);
+      });
+      var laneEnds = [];
+      blocks.forEach(function (block) {
+        var start = Number(block.dataset.start);
+        var lane = 0;
+        while (laneEnds[lane] !== undefined && laneEnds[lane] > start) {
+          lane++;
+        }
+        laneEnds[lane] = Number(block.dataset.end);
+        block.dataset.lane = String(lane);
+      });
+      blocks.forEach(function (block) {
+        var start = Number(block.dataset.start);
+        var end = Number(block.dataset.end);
+        var max = Number(block.dataset.lane);
+        blocks.forEach(function (other) {
+          var os = Number(other.dataset.start);
+          var oe = Number(other.dataset.end);
+          if (start < oe && os < end) {
+            max = Math.max(max, Number(other.dataset.lane));
+          }
+        });
+        var lanes = max + 1;
+        var lane = Number(block.dataset.lane);
+        var height = Math.max(18, minutesToTop(end) - minutesToTop(start) - 3);
+        block.style.top = minutesToTop(start) + 'px';
+        block.style.height = height + 'px';
+        block.style.left = 'calc(' + lane + ' * (100% / ' + lanes + ') + 4px)';
+        block.style.width = 'calc(100% / ' + lanes + ' - 8px)';
+        block.classList.toggle('is-compact', height < 36);
+      });
+    }
+
+    function layoutAll() {
+      board.querySelectorAll('.horario-col').forEach(layoutColumn);
+    }
+
+    function paintBlock(el, block) {
+      el.dataset.id = String(block.id);
+      el.dataset.title = block.title || '';
+      el.dataset.notes = block.notes || '';
+      el.dataset.weekday = String(block.weekday);
+      el.dataset.start = String(block.start_minute);
+      el.dataset.end = String(block.end_minute);
+      el.dataset.startLabel = block.start_label || '';
+      el.dataset.endLabel = block.end_label || '';
+      el.setAttribute('data-color', block.color || 'lavender');
+      var strong = el.querySelector('strong');
+      var time = el.querySelector('.horario-time');
+      if (strong) {
+        strong.textContent = block.title || '';
+      }
+      if (time) {
+        time.textContent = (block.start_label || '') + ' – ' + (block.end_label || '');
+      }
+    }
+
+    function makeBlock(block) {
+      var el = document.createElement('article');
+      el.className = 'horario-block';
+      el.innerHTML = '<strong></strong><span class="horario-time"></span><i class="horario-resize" data-resize aria-hidden="true"></i>';
+      paintBlock(el, block);
+      bindBlock(el);
+      return el;
+    }
+
+    function columnFor(weekday) {
+      return board.querySelector('.horario-col[data-weekday="' + weekday + '"]');
+    }
+
+    function placeBlock(block) {
+      var existing = board.querySelector('.horario-block[data-id="' + block.id + '"]');
+      var previous = existing ? existing.parentElement : null;
+      var col = columnFor(block.weekday);
+      if (!col) {
+        return;
+      }
+      var el = existing || makeBlock(block);
+      paintBlock(el, block);
+      if (el.parentElement !== col) {
+        col.appendChild(el);
+      }
+      layoutColumn(col);
+      if (previous && previous !== col) {
+        layoutColumn(previous);
+      }
+    }
+
+    function setColor(color) {
+      var radio = form.querySelector('input[name="color"][value="' + color + '"]');
+      if (radio) {
+        radio.checked = true;
+      }
+    }
+
+    function horarioHasTitle(dow, titleKey, skipId) {
+      var col = columnFor(dow);
+      if (!col || !titleKey) {
+        return false;
+      }
+      var found = false;
+      col.querySelectorAll('.horario-block').forEach(function (block) {
+        if (skipId && String(block.dataset.id) === String(skipId)) {
+          return;
+        }
+        if (normalizeTitleKey(block.dataset.title) === titleKey) {
+          found = true;
+        }
+      });
+      return found;
+    }
+
+    function syncHorarioRepeat(resetChecks) {
+      var origin = Number(dayInput && dayInput.value);
+      var titleKey = normalizeTitleKey(titleInput ? titleInput.value : '');
+      form.querySelectorAll('input[name="repeat_days[]"]').forEach(function (cb) {
+        var label = cb.closest('.task-repeat-chip');
+        var dow = Number(cb.value);
+        var isOrigin = dow === origin;
+        var taken = !isOrigin && horarioHasTitle(dow, titleKey, editingId);
+        var locked = isOrigin || taken;
+        cb.disabled = locked;
+        if (resetChecks || locked) {
+          cb.checked = false;
+        }
+        if (label) {
+          label.classList.toggle('is-disabled', locked);
+          label.classList.toggle('is-today-day', isOrigin);
+          if (isOrigin) {
+            label.setAttribute('title', 'Ya está en este día');
+          } else if (taken) {
+            label.setAttribute('title', 'Ya existe este día');
+          } else {
+            label.removeAttribute('title');
+          }
+        }
+      });
+    }
+
+    function openModal(opts) {
+      opts = opts || {};
+      editingId = opts.id ? Number(opts.id) : 0;
+      if (routeInput) {
+        routeInput.value = editingId ? '/horario/' + editingId : '/horario';
+      }
+      if (heading) {
+        heading.textContent = editingId ? 'Editar bloque' : 'Nuevo bloque';
+      }
+      if (deleteBtn) {
+        deleteBtn.hidden = !editingId;
+      }
+      if (titleInput) {
+        titleInput.value = opts.title || '';
+      }
+      if (notesInput) {
+        notesInput.value = opts.notes || '';
+      }
+      if (dayInput) {
+        dayInput.value = String(opts.weekday || dayInput.value || '1');
+      }
+      if (startInput) {
+        startInput.value = String(opts.start || dayStart + 120);
+      }
+      if (endInput) {
+        endInput.value = String(opts.end || Number(startInput && startInput.value) + 60);
+      }
+      setColor(opts.color || 'lavender');
+      showError('');
+      syncHorarioRepeat(true);
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
+      if (titleInput) {
+        titleInput.focus();
+      }
+    }
+
+    function postForm(action, body) {
+      return fetch(form.action, {
+        method: 'POST',
+        body: body,
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+      }).then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok || !data.ok) {
+            throw new Error((data && data.error) || 'No se pudo guardar.');
+          }
+          return data;
+        });
+      });
+    }
+
+    function saveMove(blockEl, previous) {
+      var data = new FormData();
+      var token = form.querySelector('input[name="_csrf"]');
+      data.append('_csrf', token ? token.value : '');
+      data.append('r', '/horario/' + blockEl.dataset.id);
+      data.append('title', blockEl.dataset.title || '');
+      data.append('notes', blockEl.dataset.notes || '');
+      data.append('weekday', blockEl.dataset.weekday || '1');
+      data.append('start_minute', blockEl.dataset.start || '0');
+      data.append('end_minute', blockEl.dataset.end || '0');
+      data.append('color', blockEl.getAttribute('data-color') || 'lavender');
+      postForm(form.action, data).then(function (payload) {
+        placeBlock(payload.block);
+      }).catch(function () {
+        blockEl.dataset.weekday = previous.weekday;
+        blockEl.dataset.start = previous.start;
+        blockEl.dataset.end = previous.end;
+        if (previous.parent) {
+          previous.parent.appendChild(blockEl);
+        }
+        layoutColumn(previous.parent);
+        layoutColumn(blockEl.parentElement);
+      });
+    }
+
+    function bindBlock(blockEl) {
+      blockEl.addEventListener('click', function (event) {
+        if (event.target.closest('[data-resize]')) {
+          return;
+        }
+        if (blockEl.dataset.dragged === '1') {
+          blockEl.dataset.dragged = '0';
+          return;
+        }
+        openModal({
+          id: Number(blockEl.dataset.id),
+          title: blockEl.dataset.title,
+          notes: blockEl.dataset.notes,
+          weekday: Number(blockEl.dataset.weekday),
+          start: Number(blockEl.dataset.start),
+          end: Number(blockEl.dataset.end),
+          color: blockEl.getAttribute('data-color'),
+        });
+      });
+
+      blockEl.addEventListener('pointerdown', function (event) {
+        if (event.button !== undefined && event.button !== 0) {
+          return;
+        }
+        var resizing = !!event.target.closest('[data-resize]');
+        var originX = event.clientX;
+        var originY = event.clientY;
+        var start = Number(blockEl.dataset.start);
+        var end = Number(blockEl.dataset.end);
+        var duration = end - start;
+        var originParent = blockEl.parentElement;
+        var originWeekday = blockEl.dataset.weekday || '1';
+        var moved = false;
+        var grabY = event.clientY - blockEl.getBoundingClientRect().top;
+        blockEl.setPointerCapture(event.pointerId);
+        board.classList.add('is-interacting');
+        blockEl.classList.add(resizing ? 'is-resizing' : 'is-dragging');
+
+        function labelMinute(minute) {
+          var h = Math.floor(minute / 60);
+          var m = minute % 60;
+          return h + ':' + (m < 10 ? '0' : '') + m;
+        }
+
+        function syncLabel() {
+          var time = blockEl.querySelector('.horario-time');
+          var from = labelMinute(Number(blockEl.dataset.start));
+          var to = labelMinute(Number(blockEl.dataset.end));
+          blockEl.dataset.startLabel = from;
+          blockEl.dataset.endLabel = to;
+          if (time) {
+            time.textContent = from + ' – ' + to;
+          }
+        }
+
+        function onMove(ev) {
+          if (Math.abs(ev.clientX - originX) + Math.abs(ev.clientY - originY) > 4) {
+            moved = true;
+          }
+          if (!moved) {
+            return;
+          }
+          var current = blockEl.parentElement || originParent;
+          if (!resizing) {
+            var target = current;
+            board.querySelectorAll('.horario-col').forEach(function (col) {
+              var rect = col.getBoundingClientRect();
+              if (ev.clientX >= rect.left && ev.clientX <= rect.right) {
+                target = col;
+              }
+            });
+            if (target && target !== current) {
+              target.appendChild(blockEl);
+              current = target;
+              blockEl.dataset.weekday = target.dataset.weekday || blockEl.dataset.weekday;
+            }
+          }
+          var rect = current.getBoundingClientRect();
+          if (resizing) {
+            var rawEnd = start + ((ev.clientY - rect.top - minutesToTop(start)) / hourPx()) * 60;
+            var nextEnd = snapMinute(rawEnd);
+            if (nextEnd < start + snap) {
+              nextEnd = start + snap;
+            }
+            if (nextEnd > dayEnd) {
+              nextEnd = dayEnd;
+            }
+            blockEl.dataset.end = String(nextEnd);
+            blockEl.style.top = minutesToTop(start) + 'px';
+            blockEl.style.height = Math.max(18, minutesToTop(nextEnd) - minutesToTop(start) - 3) + 'px';
+          } else {
+            var rawStart = dayStart + ((ev.clientY - rect.top - grabY) / hourPx()) * 60;
+            var nextStart = snapMinute(rawStart);
+            if (nextStart < dayStart) {
+              nextStart = dayStart;
+            }
+            if (nextStart + duration > dayEnd) {
+              nextStart = dayEnd - duration;
+            }
+            blockEl.dataset.start = String(nextStart);
+            blockEl.dataset.end = String(nextStart + duration);
+            blockEl.style.top = minutesToTop(nextStart) + 'px';
+            blockEl.style.height = Math.max(18, (duration / 60) * hourPx() - 3) + 'px';
+            blockEl.style.left = '4px';
+            blockEl.style.width = 'calc(100% - 8px)';
+          }
+          syncLabel();
+        }
+
+        function onUp() {
+          blockEl.removeEventListener('pointermove', onMove);
+          blockEl.removeEventListener('pointerup', onUp);
+          blockEl.removeEventListener('pointercancel', onUp);
+          board.classList.remove('is-interacting');
+          blockEl.classList.remove('is-dragging', 'is-resizing');
+          var current = blockEl.parentElement;
+          if (!moved) {
+            layoutColumn(current);
+            return;
+          }
+          blockEl.dataset.dragged = '1';
+          var samePlace = String(start) === blockEl.dataset.start
+            && String(end) === blockEl.dataset.end
+            && current === originParent;
+          if (samePlace) {
+            layoutColumn(current);
+            return;
+          }
+          saveMove(blockEl, {
+            weekday: originWeekday,
+            start: String(start),
+            end: String(end),
+            parent: originParent,
+          });
+        }
+
+        blockEl.addEventListener('pointermove', onMove);
+        blockEl.addEventListener('pointerup', onUp);
+        blockEl.addEventListener('pointercancel', onUp);
+      });
+    }
+
+    board.querySelectorAll('.horario-block').forEach(bindBlock);
+    layoutAll();
+    window.addEventListener('resize', layoutAll);
+
+    board.querySelectorAll('.horario-col').forEach(function (col) {
+      col.addEventListener('click', function (event) {
+        if (event.target.closest('.horario-block')) {
+          return;
+        }
+        var y = event.clientY - col.getBoundingClientRect().top;
+        var start = snapMinute(dayStart + (y / hourPx()) * 60);
+        if (start < dayStart) {
+          start = dayStart;
+        }
+        if (start > dayEnd - snap) {
+          start = dayEnd - snap;
+        }
+        var end = Math.min(dayEnd, start + snap);
+        openModal({
+          weekday: Number(col.dataset.weekday),
+          start: start,
+          end: end,
+        });
+      });
+    });
+
+    var addBtn = document.getElementById('horarioAdd');
+    if (addBtn) {
+      addBtn.addEventListener('click', function () {
+        var todayCol = board.querySelector('.horario-col.is-today');
+        var weekday = todayCol ? Number(todayCol.dataset.weekday) : 1;
+        openModal({ weekday: weekday, start: 9 * 60, end: 10 * 60 });
+      });
+    }
+
+    if (dayInput) {
+      dayInput.addEventListener('change', function () {
+        syncHorarioRepeat(false);
+      });
+    }
+    if (titleInput) {
+      titleInput.addEventListener('input', function () {
+        syncHorarioRepeat(false);
+      });
+    }
+
+    if (startInput && endInput) {
+      startInput.addEventListener('change', function () {
+        if (Number(endInput.value) <= Number(startInput.value)) {
+          endInput.value = String(Math.min(dayEnd, Number(startInput.value) + 60));
+        }
+      });
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      showError('');
+      syncHorarioRepeat(false);
+      if (Number(endInput.value) <= Number(startInput.value)) {
+        showError('La hora de fin tiene que ser después de la de inicio.');
+        return;
+      }
+      var body = new FormData(form);
+      var origin = String(dayInput ? dayInput.value : '');
+      body.delete('repeat_days[]');
+      form.querySelectorAll('input[name="repeat_days[]"]').forEach(function (cb) {
+        if (cb.checked && !cb.disabled && cb.value !== origin) {
+          body.append('repeat_days[]', cb.value);
+        }
+      });
+      postForm(form.action, body).then(function (payload) {
+        placeBlock(payload.block);
+        var extra = payload.blocks || [];
+        extra.forEach(function (block) {
+          if (!block || String(block.id) === String(payload.block && payload.block.id)) {
+            return;
+          }
+          placeBlock(block);
+        });
+        dialog.close();
+      }).catch(function (err) {
+        showError(err.message || 'No se pudo guardar.');
+      });
+    });
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', function () {
+        if (!editingId) {
+          return;
+        }
+        if (!window.confirm('¿Eliminar este bloque del horario?')) {
+          return;
+        }
+        var data = new FormData();
+        var token = form.querySelector('input[name="_csrf"]');
+        data.append('_csrf', token ? token.value : '');
+        data.append('r', '/horario/' + editingId + '/delete');
+        postForm(form.action, data).then(function () {
+          var el = board.querySelector('.horario-block[data-id="' + editingId + '"]');
+          var col = el ? el.parentElement : null;
+          if (el) {
+            el.remove();
+          }
+          layoutColumn(col);
+          dialog.close();
+        }).catch(function (err) {
+          showError(err.message || 'No se pudo eliminar.');
+        });
+      });
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initScrollMemory();
     initTheme();
@@ -2670,6 +3202,7 @@
     initMilestoneBlock();
     initTaskDetails();
     initHabitTrackingFields();
+    initHorario();
     initScrollTop();
     void csrfToken;
   });
