@@ -4453,36 +4453,3 @@ body:has(.horario-board) {
   .sport-discipline-action,
   .sport-discipline-slot { width: 100%; justify-content: flex-start; text-align: left; }
 }
-
-.today-training {
-  grid-column: 1 / -1;
-}
-
-.today-training-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  margin: 0 0 14px;
-}
-
-.today-training-meta strong {
-  color: var(--color-text);
-  font-weight: 700;
-}
-
-.today-training-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-
-.today-training-grid h3 {
-  margin: 0 0 8px;
-  font-size: 0.95rem;
-}
-
-@media (max-width: 900px) {
-  .today-training-grid { grid-template-columns: 1fr; }
-}
-
-
