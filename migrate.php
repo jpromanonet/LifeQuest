@@ -26,6 +26,18 @@ try {
         $messages[] = 'Columna life_areas.scope agregada.';
     }
 
+    $goalLinks = $pdo->query("SHOW COLUMNS FROM goals LIKE 'links_json'")->fetch();
+    if (!$goalLinks) {
+        $pdo->exec('ALTER TABLE goals ADD COLUMN links_json TEXT NULL AFTER external_url');
+        $messages[] = 'Columna goals.links_json agregada.';
+    }
+
+    $taskLinks = $pdo->query("SHOW COLUMNS FROM weekly_tasks LIKE 'links_json'")->fetch();
+    if (!$taskLinks) {
+        $pdo->exec('ALTER TABLE weekly_tasks ADD COLUMN links_json TEXT NULL AFTER notes');
+        $messages[] = 'Columna weekly_tasks.links_json agregada.';
+    }
+
     // goals.progress_mode + months
     $modeCol = $pdo->query("SHOW COLUMNS FROM goals LIKE 'progress_mode'")->fetch();
     if ($modeCol && !str_contains((string) $modeCol['Type'], 'months')) {

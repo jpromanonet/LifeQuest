@@ -410,3 +410,82 @@ function first_name(string $fullName): string
     $parts = preg_split('/\s+/', trim($fullName)) ?: [];
     return $parts[0] ?? $fullName;
 }
+
+/**
+ * Normaliza una lista de URLs (POST links[] o JSON).
+ *
+ * @return list<string>
+ */
+function normalize_item_links(mixed $raw): array
+{
+    if (is_string($raw) && $raw !== '') {
+        $decoded = json_decode($raw, true);
+        $raw = is_array($decoded) ? $decoded : preg_split('/\r\n|\r|\n/', $raw);
+    }
+    if (!is_array($raw)) {
+        return [];
+    }
+
+    $out = [];
+    foreach ($raw as $item) {
+        $url = trim((string) $item);
+        if ($url === '') {
+            continue;
+        }
+        if (!preg_match('#^https?://#i', $url)) {
+            $url = 'https://' . $url;
+        }
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            continue;
+        }
+        if (mb_strlen($url) > 500) {
+            continue;
+        }
+        $out[$url] = $url;
+    }
+
+    return array_values($out);
+}
+
+/** JSON para guardar en DB, o null si no hay links. */
+function encode_item_links(mixed $raw): ?string
+{
+    $links = normalize_item_links($raw);
+    if ($links === []) {
+        return null;
+    }
+
+    return json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: null;
+}
+
+/**
+ * @return list<string>
+ */
+function decode_item_links(mixed $json): array
+{
+    if ($json === null || $json === '') {
+        return [];
+    }
+    if (is_array($json)) {
+        return normalize_item_links($json);
+    }
+    $decoded = json_decode((string) $json, true);
+
+    return normalize_item_links(is_array($decoded) ? $decoded : []);
+}
+
+/**
+ * Links de un objetivo/horizonte (links_json o external_url legado).
+ *
+ * @param array<string, mixed> $goal
+ * @return list<string>
+ */
+function goal_item_links(array $goal): array
+{
+    $links = decode_item_links($goal['links_json'] ?? null);
+    if ($links === [] && !empty($goal['external_url'])) {
+        $links = normalize_item_links([(string) $goal['external_url']]);
+    }
+
+    return $links;
+}

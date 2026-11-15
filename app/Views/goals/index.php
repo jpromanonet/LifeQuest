@@ -209,6 +209,7 @@ $nextYear = $later !== [] ? min($later) : null;
                         data-due-date="<?= e((string) ($goal['due_date'] ?? '')) ?>"
                         data-next-action="<?= e((string) ($goal['next_action'] ?? '')) ?>"
                         data-success-criteria="<?= e((string) ($goal['success_criteria'] ?? '')) ?>"
+                        data-links="<?= e(json_encode(goal_item_links($goal), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]') ?>"
                         data-sort-title="<?= e(mb_strtolower((string) $goal['title'])) ?>"
                         data-sort-progress="<?= e((string) $progressSort) ?>"
                         data-sort-status="<?= e((string) $goal['status']) ?>"
@@ -217,7 +218,10 @@ $nextYear = $later !== [] ? min($later) : null;
                     >
                     <?php endif; ?>
                         <span>
-                            <strong><?= e((string) $goal['title']) ?></strong>
+                            <span class="goal-title-line">
+                                <strong><?= e((string) $goal['title']) ?></strong>
+                                <?php if (!$isBooks): $itemLinks = goal_item_links($goal); include dirname(__DIR__) . '/partials/item_links_btn.php'; endif; ?>
+                            </span>
                             <?php if ($isBooks): ?>
                                 <span class="muted small block-ellipsis">Objetivo fijo · abre la biblioteca →</span>
                             <?php elseif (!empty($goal['description'])): ?>
@@ -321,6 +325,7 @@ $nextYear = $later !== [] ? min($later) : null;
                 <input type="number" name="target_value" min="1" step="1" value="12">
             </label>
         </div>
+        <?php $itemLinks = []; $linksFieldId = 'goalCreateLinks'; include dirname(__DIR__) . '/partials/item_links_field.php'; ?>
         <?php include dirname(__DIR__) . '/partials/goal_repeat_years.php'; ?>
         <footer class="modal-foot">
             <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
@@ -377,6 +382,7 @@ $nextYear = $later !== [] ? min($later) : null;
         data-due-date="<?= e((string) ($selected['due_date'] ?? '')) ?>"
         data-next-action="<?= e((string) ($selected['next_action'] ?? '')) ?>"
         data-success-criteria="<?= e((string) ($selected['success_criteria'] ?? '')) ?>"
+        data-links="<?= e(json_encode(goal_item_links($selected), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]') ?>"
     <?php endif; ?>
 >
     <form method="post" id="goalEditForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save novalidate>
@@ -490,6 +496,7 @@ $nextYear = $later !== [] ? min($later) : null;
             <span>Criterio de éxito</span>
             <textarea name="success_criteria" id="editSuccessCriteria" rows="2"></textarea>
         </label>
+        <?php $itemLinks = []; $linksFieldId = 'goalEditLinks'; include dirname(__DIR__) . '/partials/item_links_field.php'; ?>
         <?php include dirname(__DIR__) . '/partials/goal_repeat_years.php'; ?>
         <footer class="modal-foot modal-foot-split">
             <button type="submit" form="goalDeleteForm" class="btn btn-danger" onclick="return confirm('¿Eliminar este objetivo?');">Eliminar</button>

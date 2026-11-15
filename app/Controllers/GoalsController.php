@@ -487,6 +487,7 @@ final class GoalsController
             'next_action' => input('next_action'),
             'external_system' => input('external_system'),
             'external_url' => input('external_url'),
+            'links' => input('links', []),
         ];
         $goalKey = input('goal_key');
         if ($goalKey !== null && $goalKey !== '') {

@@ -556,6 +556,108 @@
     });
   }
 
+  function parseLinksAttr(raw) {
+    if (!raw) {
+      return [];
+    }
+    try {
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function fillItemLinks(fieldId, links) {
+    var field = document.getElementById(fieldId);
+    if (!field) {
+      return;
+    }
+    var list = field.querySelector('[data-links-list]');
+    var tpl = field.querySelector('[data-link-row-template]');
+    if (!list || !tpl) {
+      return;
+    }
+    list.innerHTML = '';
+    (links || []).forEach(function (url) {
+      var node = tpl.content.cloneNode(true);
+      var input = node.querySelector('input');
+      if (input) {
+        input.value = url;
+      }
+      list.appendChild(node);
+    });
+  }
+
+  function initItemLinksFields() {
+    document.querySelectorAll('[data-item-links]').forEach(function (field) {
+      if (field.getAttribute('data-links-ready') === '1') {
+        return;
+      }
+      field.setAttribute('data-links-ready', '1');
+      var list = field.querySelector('[data-links-list]');
+      var tpl = field.querySelector('[data-link-row-template]');
+      var addBtn = field.querySelector('[data-add-link]');
+      if (!list || !tpl || !addBtn) {
+        return;
+      }
+      addBtn.addEventListener('click', function () {
+        var node = tpl.content.cloneNode(true);
+        list.appendChild(node);
+        var input = list.lastElementChild ? list.lastElementChild.querySelector('input') : null;
+        if (input) {
+          input.focus();
+        }
+      });
+      field.addEventListener('click', function (event) {
+        var remove = event.target.closest('[data-remove-link]');
+        if (!remove || !field.contains(remove)) {
+          return;
+        }
+        var row = remove.closest('.item-link-row');
+        if (row) {
+          row.remove();
+        }
+      });
+    });
+  }
+
+  function initItemLinkMenus() {
+    document.addEventListener('click', function (event) {
+      var btn = event.target.closest('[data-item-links-menu]');
+      var openMenus = document.querySelectorAll('.item-link-menu.is-open');
+      openMenus.forEach(function (menu) {
+        if (!btn || !menu.contains(btn)) {
+          menu.classList.remove('is-open');
+          var toggle = menu.querySelector('[data-item-links-menu]');
+          var pop = menu.querySelector('.item-link-popover');
+          if (toggle) {
+            toggle.setAttribute('aria-expanded', 'false');
+          }
+          if (pop) {
+            pop.hidden = true;
+          }
+        }
+      });
+      if (!btn) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      var wrap = btn.closest('.item-link-menu');
+      if (!wrap) {
+        return;
+      }
+      var popover = wrap.querySelector('.item-link-popover');
+      var willOpen = !wrap.classList.contains('is-open');
+      wrap.classList.toggle('is-open', willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (popover) {
+        popover.hidden = !willOpen;
+      }
+    });
+  }
+
   function openWeeklyTaskModal(opts) {
     var dialog = document.getElementById('weeklyTaskModal');
     var form = document.getElementById('weeklyTaskForm');
@@ -597,6 +699,7 @@
       minutes.value = opts.minutes || '';
     }
     setTaskKind(opts.kind || 'work');
+    fillItemLinks('weeklyTaskLinks', opts.links || []);
 
     form.setAttribute('data-repeat-exclude-date', opts.date || '');
     form.setAttribute('data-repeat-exclude-title', normalizeTitleKey(opts.title || ''));
@@ -621,6 +724,7 @@
           date: btn.getAttribute('data-date') || '',
           kind: btn.getAttribute('data-kind') || 'personal',
           notes: btn.getAttribute('data-notes') || '',
+          links: parseLinksAttr(btn.getAttribute('data-links') || '[]'),
           start: btn.getAttribute('data-start') || '',
           minutes: btn.getAttribute('data-minutes') || '',
         });
@@ -631,6 +735,7 @@
         openWeeklyTaskModal({
           date: btn.getAttribute('data-date') || '',
           kind: 'work',
+          links: [],
         });
       });
     });
@@ -813,6 +918,7 @@
     updateUnitsLabel();
 
     syncGoalProgressUi(mode, parseFloat(source.getAttribute('data-progress') || '0') >= 100);
+    fillItemLinks('goalEditLinks', parseLinksAttr(source.getAttribute('data-links') || '[]'));
 
     var monthsCsv = source.getAttribute('data-months') || '';
     var checked = {};
@@ -1300,6 +1406,7 @@
       });
 
       applyHorizonDone(source.getAttribute('data-done') === '1');
+      fillItemLinks('horizonEditLinks', parseLinksAttr(source.getAttribute('data-links') || '[]'));
 
       return dialog;
     }
@@ -3826,6 +3933,8 @@
     initHabitDaySelect();
     initWaterQty();
     initTaskToggles();
+    initItemLinksFields();
+    initItemLinkMenus();
     initWeeklyTaskModal();
     initRepeatDayGuards();
     initCharts();

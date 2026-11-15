@@ -31,6 +31,7 @@ final class WeeklyPlanService
                   title VARCHAR(255) NOT NULL,
                   task_kind ENUM('work','personal') NOT NULL DEFAULT 'personal',
                   notes TEXT NULL,
+                  links_json TEXT NULL,
                   image_path VARCHAR(255) NULL,
                   start_time TIME NULL,
                   estimated_minutes INT UNSIGNED NULL,
@@ -65,6 +66,10 @@ final class WeeklyPlanService
                 "ALTER TABLE weekly_tasks
                  ADD COLUMN task_kind ENUM('work','personal') NOT NULL DEFAULT 'personal' AFTER title"
             );
+        }
+        $linksCol = $pdo->query("SHOW COLUMNS FROM weekly_tasks LIKE 'links_json'")->fetch();
+        if (!$linksCol) {
+            $pdo->exec('ALTER TABLE weekly_tasks ADD COLUMN links_json TEXT NULL AFTER notes');
         }
 
         $stepsExists = $pdo->query("SHOW TABLES LIKE 'weekly_task_steps'")->fetch();
@@ -121,6 +126,7 @@ final class WeeklyPlanService
             $task['steps'] = $steps;
             $task['steps_total'] = count($steps);
             $task['steps_done'] = count(array_filter($steps, static fn (array $s): bool => (int) $s['is_done'] === 1));
+            $task['links'] = decode_item_links($task['links_json'] ?? null);
         }
         unset($task);
         return $tasks;
@@ -435,6 +441,7 @@ final class WeeklyPlanService
         }
 
         $notes = $data['notes'] ?? null;
+        $linksJson = encode_item_links($data['links'] ?? null);
         $kind = self::normalizeKind($data['task_kind'] ?? 'personal');
         $startTime = self::normalizeTime($data['start_time'] ?? null);
         $estimated = self::normalizeMinutes($data['estimated_minutes'] ?? null);
@@ -462,6 +469,7 @@ final class WeeklyPlanService
                 'title' => $title,
                 'task_kind' => $kind,
                 'notes' => $notes,
+                'links_json' => $linksJson,
                 'start_time' => $startTime,
                 'estimated_minutes' => $estimated,
             ]);
@@ -484,8 +492,8 @@ final class WeeklyPlanService
         $sort = (int) $orderStmt->fetchColumn();
 
         $stmt = $pdo->prepare(
-            'INSERT INTO weekly_tasks (user_id, task_date, title, task_kind, notes, image_path, start_time, estimated_minutes, sort_order)
-             VALUES (:uid, :d, :title, :kind, :notes, :image, :start_time, :estimated, :sort)'
+            'INSERT INTO weekly_tasks (user_id, task_date, title, task_kind, notes, links_json, image_path, start_time, estimated_minutes, sort_order)
+             VALUES (:uid, :d, :title, :kind, :notes, :links, :image, :start_time, :estimated, :sort)'
         );
         $stmt->execute([
             'uid' => $userId,
@@ -493,6 +501,7 @@ final class WeeklyPlanService
             'title' => mb_substr((string) $row['title'], 0, 255),
             'kind' => self::normalizeKind($row['task_kind'] ?? 'personal'),
             'notes' => $row['notes'] ?? null,
+            'links' => $row['links_json'] ?? null,
             'image' => $row['image_path'] ?? null,
             'start_time' => $row['start_time'] ?? null,
             'estimated' => $row['estimated_minutes'] ?? null,
@@ -544,6 +553,9 @@ final class WeeklyPlanService
             throw new InvalidArgumentException('Fecha inválida.');
         }
         $notes = array_key_exists('notes', $data) ? $data['notes'] : $task['notes'];
+        $linksJson = array_key_exists('links', $data)
+            ? encode_item_links($data['links'])
+            : ($task['links_json'] ?? null);
         $kind = array_key_exists('task_kind', $data)
             ? self::normalizeKind($data['task_kind'])
             : self::normalizeKind($task['task_kind'] ?? 'personal');
@@ -556,7 +568,7 @@ final class WeeklyPlanService
 
         $stmt = Database::pdo()->prepare(
             'UPDATE weekly_tasks
-             SET title = :title, task_kind = :kind, notes = :notes, task_date = :d,
+             SET title = :title, task_kind = :kind, notes = :notes, links_json = :links, task_date = :d,
                  start_time = :start_time, estimated_minutes = :estimated,
                  updated_at = UTC_TIMESTAMP()
              WHERE id = :id AND user_id = :uid AND deleted_at IS NULL'
@@ -565,6 +577,7 @@ final class WeeklyPlanService
             'title' => mb_substr($title, 0, 255),
             'kind' => $kind,
             'notes' => $notes,
+            'links' => $linksJson,
             'd' => $date,
             'start_time' => $startTime,
             'estimated' => $estimated,
@@ -602,6 +615,7 @@ final class WeeklyPlanService
                 'title' => (string) $source['title'],
                 'task_kind' => $source['task_kind'] ?? 'personal',
                 'notes' => $source['notes'] ?? null,
+                'links_json' => $source['links_json'] ?? null,
                 'image_path' => $source['image_path'] ?? null,
                 'start_time' => $source['start_time'] ?? null,
                 'estimated_minutes' => isset($source['estimated_minutes']) && $source['estimated_minutes'] !== null && $source['estimated_minutes'] !== ''

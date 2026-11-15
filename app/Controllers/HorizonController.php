@@ -154,6 +154,7 @@ final class HorizonController
             'next_action' => input('next_action'),
             'external_system' => input('external_system'),
             'external_url' => input('external_url'),
+            'links' => input('links', []),
         ];
     }
 

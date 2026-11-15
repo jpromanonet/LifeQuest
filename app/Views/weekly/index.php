@@ -196,6 +196,7 @@ $weekUrl = static function (string $week, string $day = 'all') use ($weekParam):
             <span>Notas</span>
             <textarea name="notes" id="weeklyTaskNotes" rows="2"></textarea>
         </label>
+        <?php $itemLinks = []; $linksFieldId = 'weeklyTaskLinks'; include dirname(__DIR__) . '/partials/item_links_field.php'; ?>
         <?php $currentDow = 0; include dirname(__DIR__) . '/partials/task_repeat_picker.php'; ?>
         <footer class="modal-foot">
             <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>

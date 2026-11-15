@@ -131,13 +131,17 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
                             data-priority="<?= e((string) ($goal['priority'] ?? 'medium')) ?>"
                             data-done="<?= $done ? '1' : '0' ?>"
                             data-next-action="<?= e((string) ($goal['next_action'] ?? '')) ?>"
+                            data-links="<?= e(json_encode(goal_item_links($goal), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]') ?>"
                             data-sort-title="<?= e(mb_strtolower((string) $goal['title'])) ?>"
                             data-sort-done="<?= $done ? '1' : '0' ?>"
                             data-sort-status="<?= e((string) $goal['status']) ?>"
                             data-sort-next="<?= e(mb_strtolower((string) ($goal['next_action'] ?? ''))) ?>"
                         >
                             <span>
-                                <strong><?= e((string) $goal['title']) ?></strong>
+                                <span class="goal-title-line">
+                                    <strong><?= e((string) $goal['title']) ?></strong>
+                                    <?php $itemLinks = goal_item_links($goal); include dirname(__DIR__) . '/partials/item_links_btn.php'; ?>
+                                </span>
                                 <?php if (!empty($goal['description'])): ?>
                                     <span class="muted small block-ellipsis"><?= e((string) $goal['description']) ?></span>
                                 <?php endif; ?>
@@ -167,6 +171,7 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
         data-priority="<?= e((string) ($selected['priority'] ?? 'medium')) ?>"
         data-done="<?= $horizonDone($selected) ? '1' : '0' ?>"
         data-next-action="<?= e((string) ($selected['next_action'] ?? '')) ?>"
+        data-links="<?= e(json_encode(goal_item_links($selected), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]') ?>"
     <?php endif; ?>
 >
     <form method="post" id="horizonEditForm" action="<?= e(form_action()) ?>" class="stack-form" data-lq-save>
@@ -207,6 +212,7 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
             <span>Próxima acción</span>
             <input type="text" name="next_action" id="horizonEditNextAction">
         </label>
+        <?php $itemLinks = []; $linksFieldId = 'horizonEditLinks'; include dirname(__DIR__) . '/partials/item_links_field.php'; ?>
         <div class="field" id="horizonBinaryBlock" data-goal-id="">
             <div class="month-progress-head">
                 <span>Logro</span>
@@ -284,6 +290,7 @@ $horizonPct = $horizonTotal > 0 ? round(($horizonAchieved / $horizonTotal) * 100
             <span>Próxima acción</span>
             <input type="text" name="next_action">
         </label>
+        <?php $itemLinks = []; $linksFieldId = 'horizonCreateLinks'; include dirname(__DIR__) . '/partials/item_links_field.php'; ?>
         <footer class="modal-foot">
             <button type="button" class="btn btn-ghost" data-close-modal>Cancelar</button>
             <button type="submit" class="btn btn-primary">Crear</button>

@@ -7,9 +7,24 @@ final class GoalService
     private const VALID_STATUSES = ['idea', 'planned', 'active', 'paused', 'completed', 'cancelled', 'archived'];
     private const VALID_PRIORITIES = ['low', 'medium', 'high', 'critical'];
 
+    public function ensureLinksColumn(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $pdo = Database::pdo();
+        $col = $pdo->query("SHOW COLUMNS FROM goals LIKE 'links_json'")->fetch();
+        if (!$col) {
+            $pdo->exec('ALTER TABLE goals ADD COLUMN links_json TEXT NULL AFTER external_url');
+        }
+        $done = true;
+    }
+
     /** @param array<string, mixed> $filters @return list<array<string, mixed>> */
     public function list(int $userId, array $filters = []): array
     {
+        $this->ensureLinksColumn();
         $sql = 'SELECT g.*,
                        la.name AS area_name, la.color AS area_color, la.area_key,
                        ia.name AS impact_area_name, ia.color AS impact_area_color
@@ -106,6 +121,7 @@ final class GoalService
     /** @param array<string, mixed> $data */
     public function create(int $userId, array $data): int
     {
+        $this->ensureLinksColumn();
         $status = (string) ($data['status'] ?? 'planned');
         if (!in_array($status, self::VALID_STATUSES, true)) {
             throw new InvalidArgumentException('Invalid goal status');
@@ -115,20 +131,24 @@ final class GoalService
             throw new InvalidArgumentException('Invalid goal priority');
         }
 
+        $linksJson = array_key_exists('links', $data)
+            ? encode_item_links($data['links'])
+            : encode_item_links($data['links_json'] ?? null);
+
         $stmt = Database::pdo()->prepare(
             'INSERT INTO goals (
                 user_id, goal_key, title, description, goal_type, area_id, impact_area_id,
                 parent_goal_id, series_id, horizon, period_year, period_quarter, period_month,
                 status, priority, progress_mode, progress_percent, target_value, current_value,
                 unit, start_date, due_date, success_criteria, motivation, next_action,
-                external_system, external_url, source_system, source_page, source_text,
+                external_system, external_url, links_json, source_system, source_page, source_text,
                 source_checked, sort_order, completed_at
              ) VALUES (
                 :user_id, :goal_key, :title, :description, :goal_type, :area_id, :impact_area_id,
                 :parent_goal_id, :series_id, :horizon, :period_year, :period_quarter, :period_month,
                 :status, :priority, :progress_mode, :progress_percent, :target_value, :current_value,
                 :unit, :start_date, :due_date, :success_criteria, :motivation, :next_action,
-                :external_system, :external_url, :source_system, :source_page, :source_text,
+                :external_system, :external_url, :links_json, :source_system, :source_page, :source_text,
                 :source_checked, :sort_order, :completed_at
              )'
         );
@@ -160,6 +180,7 @@ final class GoalService
             'next_action' => $data['next_action'] ?? null,
             'external_system' => $data['external_system'] ?? null,
             'external_url' => $data['external_url'] ?? null,
+            'links_json' => $linksJson,
             'source_system' => $data['source_system'] ?? 'lifequest',
             'source_page' => $data['source_page'] ?? null,
             'source_text' => $data['source_text'] ?? null,
@@ -182,6 +203,7 @@ final class GoalService
     /** @param array<string, mixed> $data */
     public function update(int $userId, int $id, array $data): void
     {
+        $this->ensureLinksColumn();
         $existing = $this->find($userId, $id);
         if ($existing === null) {
             throw new RuntimeException('Goal not found');
@@ -205,6 +227,10 @@ final class GoalService
             } elseif ($status !== 'completed') {
                 $completedAt = null;
             }
+
+            $linksJson = array_key_exists('links', $data)
+                ? encode_item_links($data['links'])
+                : ($existing['links_json'] ?? null);
 
             $stmt = $pdo->prepare(
                 'UPDATE goals SET
@@ -234,6 +260,7 @@ final class GoalService
                     next_action = :next_action,
                     external_system = :external_system,
                     external_url = :external_url,
+                    links_json = :links_json,
                     source_system = :source_system,
                     source_page = :source_page,
                     source_text = :source_text,
@@ -273,6 +300,7 @@ final class GoalService
                 'next_action' => array_key_exists('next_action', $data) ? $data['next_action'] : $existing['next_action'],
                 'external_system' => array_key_exists('external_system', $data) ? $data['external_system'] : $existing['external_system'],
                 'external_url' => array_key_exists('external_url', $data) ? $data['external_url'] : $existing['external_url'],
+                'links_json' => $linksJson,
                 'source_system' => $data['source_system'] ?? $existing['source_system'],
                 'source_page' => array_key_exists('source_page', $data) ? $data['source_page'] : $existing['source_page'],
                 'source_text' => array_key_exists('source_text', $data) ? $data['source_text'] : $existing['source_text'],

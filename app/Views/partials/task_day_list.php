@@ -50,6 +50,7 @@ foreach ($tasks as $task) {
                     <?php include __DIR__ . '/task_flags.php'; ?>
                 </span>
                 <div class="weekly-task-actions">
+                    <?php $itemLinks = $task['links'] ?? decode_item_links($task['links_json'] ?? null); include __DIR__ . '/item_links_btn.php'; ?>
                     <button type="button" class="btn btn-ghost btn-sm task-expand-btn" data-task-expand aria-expanded="false" title="Imagen y pasos">▾</button>
                     <button
                         type="button"
@@ -60,6 +61,7 @@ foreach ($tasks as $task) {
                         data-date="<?= e((string) $task['task_date']) ?>"
                         data-kind="<?= e($kind) ?>"
                         data-notes="<?= e((string) ($task['notes'] ?? '')) ?>"
+                        data-links="<?= e(json_encode($itemLinks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]') ?>"
                         data-start="<?= e(format_task_time($task['start_time'] ?? null)) ?>"
                         data-minutes="<?= e((string) ((int) ($task['estimated_minutes'] ?? 0) > 0 ? (int) $task['estimated_minutes'] : '')) ?>"
                     >Editar</button>
