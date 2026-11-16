@@ -117,6 +117,7 @@ $router->post('/milestones/{id}/delete', [$milestones, 'destroy']);
 
 $weeklyReport = new WeeklyReportController();
 $router->get('/informe-semanal', [$weeklyReport, 'index']);
+$router->get('/informe-semanal/pdf', [$weeklyReport, 'pdf']);
 
 $friends = new FriendsController();
 $router->get('/friends', [$friends, 'index']);

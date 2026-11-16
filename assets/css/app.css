@@ -257,7 +257,7 @@ a:hover { color: var(--color-primary-strong); }
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .nav-block {
@@ -347,6 +347,81 @@ a:hover { color: var(--color-primary-strong); }
   border-left-color: var(--color-primary);
 }
 
+[data-theme="dark"] .nav-block {
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: var(--color-surface-alt);
+}
+
+[data-theme="dark"] .nav-block--today {
+  background: color-mix(in srgb, var(--color-mint-soft) 88%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-mint) 35%, var(--color-border));
+}
+
+[data-theme="dark"] .nav-block--life {
+  background: color-mix(in srgb, var(--color-peach-soft) 70%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-peach) 32%, var(--color-border));
+}
+
+[data-theme="dark"] .nav-block--insight {
+  background: color-mix(in srgb, var(--color-sky-soft) 85%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-sky) 32%, var(--color-border));
+}
+
+[data-theme="dark"] .nav-block--settings {
+  background: var(--color-surface-alt);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .nav-item {
+  background: color-mix(in srgb, var(--color-sidebar) 55%, transparent);
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .nav-block--today .nav-item {
+  color: var(--color-mint);
+}
+
+[data-theme="dark"] .nav-block--life .nav-item {
+  color: var(--color-peach);
+}
+
+[data-theme="dark"] .nav-block--insight .nav-item {
+  color: var(--color-sky);
+}
+
+[data-theme="dark"] .nav-block--settings .nav-item {
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .nav-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .nav-item.is-active {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .nav-block--today .nav-item.is-active {
+  color: var(--color-mint);
+}
+
+[data-theme="dark"] .nav-block--life .nav-item.is-active {
+  color: #FFD0C2;
+}
+
+[data-theme="dark"] .nav-block--insight .nav-item.is-active {
+  color: #A8DDF0;
+}
+
+[data-theme="dark"] .nav-block--settings .nav-item.is-active {
+  color: var(--color-text);
+  border-left-color: var(--color-primary);
+}
+
 .nav-icon {
   display: inline-flex;
   width: 22px;
@@ -355,17 +430,16 @@ a:hover { color: var(--color-primary-strong); }
 }
 
 .sidebar-footer {
-  margin-top: auto;
-  padding: 16px 8px 4px;
+  flex-shrink: 0;
+  margin-top: 12px;
+  padding: 12px 8px 4px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 .sidebar-path {
-  width: 100%;
-  height: auto;
-  opacity: 0.85;
+  display: none;
 }
 
 .sidebar-logout { margin: 0; }
@@ -1454,6 +1528,18 @@ html[data-theme="dark"] .theme-toggle .theme-icon-moon { display: block; }
 }
 
 .btn-primary:hover { background: var(--color-primary-strong); color: #fff; }
+
+.btn-success {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: #fff;
+}
+
+.btn-success:hover {
+  background: color-mix(in srgb, var(--color-success) 82%, #0b3d2c);
+  border-color: color-mix(in srgb, var(--color-success) 82%, #0b3d2c);
+  color: #fff;
+}
 
 .btn-ghost {
   background: transparent;
@@ -4605,7 +4691,7 @@ body:has(.horario-board) {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin: 8px 0 18px;
 }
@@ -4613,7 +4699,9 @@ body:has(.horario-board) {
 .metric-grid--weekly .metric:nth-child(1) { border-top-color: #0E6E6A; }
 .metric-grid--weekly .metric:nth-child(2) { border-top-color: #C96A2C; }
 .metric-grid--weekly .metric:nth-child(3) { border-top-color: #D4A017; }
-.metric-grid--weekly .metric:nth-child(4) { border-top-color: #3A6FA8; }
+.metric-grid--weekly .metric:nth-child(4) { border-top-color: #7C83E1; }
+.metric-grid--weekly .metric:nth-child(5) { border-top-color: #78C6B0; }
+.metric-grid--weekly .metric:nth-child(6) { border-top-color: #5C6570; }
 
 .metric {
   display: block;

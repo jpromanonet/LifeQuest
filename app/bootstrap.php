@@ -20,6 +20,7 @@ require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/Router.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/Support/MonthProgress.php';
+require_once __DIR__ . '/Support/SimplePdf.php';
 
 require_once __DIR__ . '/Services/AuditService.php';
 require_once __DIR__ . '/Services/AreaService.php';

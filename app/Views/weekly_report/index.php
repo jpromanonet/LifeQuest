@@ -16,7 +16,6 @@
 /** @var list<array<string,mixed>> $goals */
 /** @var list<array<string,mixed>> $milestones */
 /** @var list<array<string,mixed>> $horizons */
-/** @var int $completionsCount */
 
 $base = '/informe-semanal';
 $dayNames = [
@@ -37,6 +36,7 @@ $dayNames = [
         <a class="btn btn-ghost" href="<?= e(url($base . '?week=' . $prevWeek)) ?>">← Anterior</a>
         <a class="btn btn-ghost" href="<?= e(url($base)) ?>">Hoy</a>
         <a class="btn btn-ghost" href="<?= e(url($base . '?week=' . $nextWeek)) ?>">Siguiente →</a>
+        <a class="btn btn-success" href="<?= e(url($base . '/pdf?week=' . $weekStart)) ?>">Exportar PDF</a>
     </div>
 </section>
 
@@ -54,8 +54,16 @@ $dayNames = [
         <strong><?= (int) $habitsDoneCount ?></strong>
     </div>
     <div class="metric">
-        <span>Logros</span>
-        <strong><?= (int) $completionsCount ?></strong>
+        <span>Objetivos realizados</span>
+        <strong><?= count($goals) ?></strong>
+    </div>
+    <div class="metric">
+        <span>Hitos completados</span>
+        <strong><?= count($milestones) ?></strong>
+    </div>
+    <div class="metric">
+        <span>Horizontes completados</span>
+        <strong><?= count($horizons) ?></strong>
     </div>
 </div>
 
