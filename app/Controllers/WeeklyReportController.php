@@ -155,10 +155,27 @@ final class WeeklyReportController
         $weekNum = str_pad((string) (int) ltrim((string) $data['weekNumber'], '0'), 2, '0', STR_PAD_LEFT);
         $filename = 'informe_semanal_lifequest_W' . $weekNum . '_' . $data['weekYear'] . '.pdf';
         $binary = $pdf->render();
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        if (function_exists('ini_set')) {
+            @ini_set('zlib.output_compression', '0');
+        }
+
         header('Content-Type: application/pdf');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Transfer-Encoding: binary');
+        header(
+            'Content-Disposition: attachment; filename="' . $filename . '"; filename*=UTF-8\'\'' . rawurlencode($filename)
+        );
         header('Content-Length: ' . (string) strlen($binary));
-        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('Cache-Control: private, no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        header('X-Content-Type-Options: nosniff');
         echo $binary;
         exit;
     }

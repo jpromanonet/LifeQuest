@@ -36,7 +36,11 @@ $dayNames = [
         <a class="btn btn-ghost" href="<?= e(url($base . '?week=' . $prevWeek)) ?>">← Anterior</a>
         <a class="btn btn-ghost" href="<?= e(url($base)) ?>">Hoy</a>
         <a class="btn btn-ghost" href="<?= e(url($base . '?week=' . $nextWeek)) ?>">Siguiente →</a>
-        <a class="btn btn-success" href="<?= e(url($base . '/pdf?week=' . $weekStart)) ?>">Exportar PDF</a>
+        <?php
+        $weekNumLabel = str_pad((string) (int) ltrim((string) $weekNumber, '0'), 2, '0', STR_PAD_LEFT);
+        $pdfFilename = 'informe_semanal_lifequest_W' . $weekNumLabel . '_' . $weekYear . '.pdf';
+        ?>
+        <a class="btn btn-success" href="<?= e(url($base . '/pdf?week=' . $weekStart)) ?>" download="<?= e($pdfFilename) ?>"><?= e('Exportar PDF') ?></a>
     </div>
 </section>
 
