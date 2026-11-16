@@ -25,6 +25,17 @@ final class SimplePdf
         $this->blocks[] = ['type' => 'metrics', 'items' => $items];
     }
 
+    /**
+     * 3+3 cards a la izquierda y una card alta a la derecha (ocupa las 2 filas).
+     *
+     * @param list<array{label:string,value:string,color:array{0:float,1:float,2:float}}> $left
+     * @param array{label:string,value:string,color:array{0:float,1:float,2:float}} $tall
+     */
+    public function metricsWithTall(array $left, array $tall): void
+    {
+        $this->blocks[] = ['type' => 'metrics_tall', 'left' => $left, 'tall' => $tall];
+    }
+
     /** @param array{0:float,1:float,2:float} $color */
     public function section(string $title, array $color, string $count = ''): void
     {
@@ -162,18 +173,41 @@ final class SimplePdf
                 $ensure(64);
                 $x = $marginX;
                 foreach ($items as $item) {
-                    $ops[] = self::roundish($x, $y - 54, $cardW, 54, [1, 1, 1]);
-                    $ops[] = self::rect($x, $y - 54, 4, 54, $item['color'], true);
-                    $labelChunks = self::wrap($item['label'], max(10, (int) floor($cardW / 4.6)));
-                    $ly = $y - 16;
-                    foreach (array_slice($labelChunks, 0, 2) as $chunk) {
-                        $ops[] = self::text($x + 10, $ly, self::winAnsi($chunk), 7, false, [0.42, 0.45, 0.48]);
-                        $ly -= 9;
-                    }
-                    $ops[] = self::text($x + 10, $y - 44, self::winAnsi($item['value']), 13, true, $item['color']);
+                    $ops = array_merge($ops, self::metricCard($x, $y, $cardW, 54.0, $item));
                     $x += $cardW + $gap;
                 }
                 $y -= 68;
+                continue;
+            }
+
+            if ($type === 'metrics_tall') {
+                /** @var list<array{label:string,value:string,color:array{0:float,1:float,2:float}}> $left */
+                $left = $block['left'];
+                /** @var array{label:string,value:string,color:array{0:float,1:float,2:float}} $tall */
+                $tall = $block['tall'];
+                $gap = 10.0;
+                $rowH = 54.0;
+                $totalH = $rowH * 2 + $gap;
+                $ensure($totalH + 14);
+                $tallW = ($contentW - $gap * 3) / 4;
+                $leftW = $contentW - $gap - $tallW;
+                $cardW = ($leftW - $gap * 2) / 3;
+                $top = array_slice($left, 0, 3);
+                $bottom = array_slice($left, 3, 3);
+                $x = $marginX;
+                foreach ($top as $item) {
+                    $ops = array_merge($ops, self::metricCard($x, $y, $cardW, $rowH, $item));
+                    $x += $cardW + $gap;
+                }
+                $x = $marginX;
+                $y2 = $y - $rowH - $gap;
+                foreach ($bottom as $item) {
+                    $ops = array_merge($ops, self::metricCard($x, $y2, $cardW, $rowH, $item));
+                    $x += $cardW + $gap;
+                }
+                $tallX = $marginX + $leftW + $gap;
+                $ops = array_merge($ops, self::metricCard($tallX, $y, $tallW, $totalH, $tall, true));
+                $y -= $totalH + 14;
                 continue;
             }
 
@@ -261,6 +295,28 @@ final class SimplePdf
         }
 
         return $pages;
+    }
+
+    /**
+     * @param array{label:string,value:string,color:array{0:float,1:float,2:float}} $item
+     * @return list<string>
+     */
+    private static function metricCard(float $x, float $y, float $w, float $h, array $item, bool $tall = false): array
+    {
+        $ops = [];
+        $ops[] = self::roundish($x, $y - $h, $w, $h, [1, 1, 1]);
+        $ops[] = self::rect($x, $y - $h, 4, $h, $item['color'], true);
+        $labelChunks = self::wrap($item['label'], max(10, (int) floor($w / 4.6)));
+        $ly = $y - ($tall ? 22 : 16);
+        foreach (array_slice($labelChunks, 0, $tall ? 3 : 2) as $chunk) {
+            $ops[] = self::text($x + 10, $ly, self::winAnsi($chunk), $tall ? 8 : 7, false, [0.42, 0.45, 0.48]);
+            $ly -= 10;
+        }
+        $valueSize = $tall ? 16.0 : 13.0;
+        $valueY = $tall ? ($y - $h / 2 - 4) : ($y - 44);
+        $ops[] = self::text($x + 10, $valueY, self::winAnsi($item['value']), $valueSize, true, $item['color']);
+
+        return $ops;
     }
 
     /** @param array{0:float,1:float,2:float} $rgb */

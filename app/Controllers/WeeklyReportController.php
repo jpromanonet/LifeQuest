@@ -31,6 +31,7 @@ final class WeeklyReportController
             'task' => [0.055, 0.431, 0.416],
             'sport' => [0.788, 0.416, 0.173],
             'habit' => [0.831, 0.627, 0.090],
+            'hours' => [0.357, 0.388, 0.827],
             'goal' => [0.486, 0.514, 0.882],
             'milestone' => [0.471, 0.776, 0.690],
             'horizon' => [0.361, 0.396, 0.439],
@@ -46,16 +47,21 @@ final class WeeklyReportController
             $appName . '  ·  ' . (string) $data['rangeLabel'],
             $weekLabel
         );
-        $pdf->metrics([
-            ['label' => 'Tareas hechas', 'value' => (string) (int) $data['tasksDone'], 'color' => $colors['task']],
-            ['label' => 'Entrenamiento', 'value' => (string) (int) $data['trainingCount'], 'color' => $colors['sport']],
-            ['label' => 'Hábitos hechos', 'value' => (string) (int) $data['habitsDoneCount'], 'color' => $colors['habit']],
-        ]);
-        $pdf->metrics([
-            ['label' => 'Objetivos realizados', 'value' => (string) count($data['goals']), 'color' => $colors['goal']],
-            ['label' => 'Hitos completados', 'value' => (string) count($data['milestones']), 'color' => $colors['milestone']],
-            ['label' => 'Horizontes completados', 'value' => (string) count($data['horizons']), 'color' => $colors['horizon']],
-        ]);
+        $pdf->metricsWithTall(
+            [
+                ['label' => 'Tareas hechas', 'value' => (string) (int) $data['tasksDone'], 'color' => $colors['task']],
+                ['label' => 'Entrenamiento', 'value' => (string) (int) $data['trainingCount'], 'color' => $colors['sport']],
+                ['label' => 'Hábitos hechos', 'value' => (string) (int) $data['habitsDoneCount'], 'color' => $colors['habit']],
+                ['label' => 'Objetivos realizados', 'value' => (string) count($data['goals']), 'color' => $colors['goal']],
+                ['label' => 'Hitos completados', 'value' => (string) count($data['milestones']), 'color' => $colors['milestone']],
+                ['label' => 'Horizontes completados', 'value' => (string) count($data['horizons']), 'color' => $colors['horizon']],
+            ],
+            [
+                'label' => 'Horas hechas / programadas',
+                'value' => (string) $data['hoursLabel'],
+                'color' => $colors['hours'],
+            ]
+        );
 
         $tasks = $data['tasks'];
         $pdf->section(

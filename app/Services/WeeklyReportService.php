@@ -47,6 +47,7 @@ final class WeeklyReportService
         $milestones = $this->completedMilestones($userId, $startUtc, $endUtc);
 
         $tasksDone = count(array_filter($tasks, static fn (array $t): bool => !empty($t['is_done'])));
+        $hours = WeeklyPlanService::minutesFromTasks($tasks);
 
         return [
             'weekStart' => $startDay,
@@ -59,6 +60,11 @@ final class WeeklyReportService
             'isCurrentWeek' => $isCurrentWeek,
             'tasks' => $tasks,
             'tasksDone' => $tasksDone,
+            'hoursMinutesDone' => (int) $hours['done'],
+            'hoursMinutesTotal' => (int) $hours['total'],
+            'hoursLabel' => format_hours_from_minutes((int) $hours['done'])
+                . ' / '
+                . format_hours_from_minutes((int) $hours['total']),
             'training' => $training,
             'trainingCount' => count($training),
             'habits' => $habits,

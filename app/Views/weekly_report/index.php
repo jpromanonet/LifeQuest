@@ -9,6 +9,7 @@
 /** @var bool $isCurrentWeek */
 /** @var list<array<string,mixed>> $tasks */
 /** @var int $tasksDone */
+/** @var string $hoursLabel */
 /** @var list<array<string,mixed>> $training */
 /** @var int $trainingCount */
 /** @var list<array<string,mixed>> $habits */
@@ -56,6 +57,10 @@ $dayNames = [
     <div class="metric">
         <span>Hábitos hechos</span>
         <strong><?= (int) $habitsDoneCount ?></strong>
+    </div>
+    <div class="metric metric--hours">
+        <span>Horas hechas / programadas</span>
+        <strong><?= e((string) $hoursLabel) ?></strong>
     </div>
     <div class="metric">
         <span>Objetivos realizados</span>

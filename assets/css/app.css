@@ -4696,12 +4696,32 @@ body:has(.horario-board) {
   margin: 8px 0 18px;
 }
 
+.metric-grid--weekly {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+}
+
 .metric-grid--weekly .metric:nth-child(1) { border-top-color: #0E6E6A; }
 .metric-grid--weekly .metric:nth-child(2) { border-top-color: #C96A2C; }
 .metric-grid--weekly .metric:nth-child(3) { border-top-color: #D4A017; }
-.metric-grid--weekly .metric:nth-child(4) { border-top-color: #7C83E1; }
-.metric-grid--weekly .metric:nth-child(5) { border-top-color: #78C6B0; }
-.metric-grid--weekly .metric:nth-child(6) { border-top-color: #5C6570; }
+.metric-grid--weekly .metric:nth-child(4) { border-top-color: #5B63D3; }
+.metric-grid--weekly .metric:nth-child(5) { border-top-color: #7C83E1; }
+.metric-grid--weekly .metric:nth-child(6) { border-top-color: #78C6B0; }
+.metric-grid--weekly .metric:nth-child(7) { border-top-color: #5C6570; }
+
+.metric-grid--weekly .metric--hours {
+  grid-column: 4;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
+}
+
+.metric--hours strong {
+  font-size: 1.35rem;
+}
 
 .metric {
   display: block;
@@ -4794,5 +4814,11 @@ body:has(.horario-board) {
 }
 
 @media (max-width: 900px) {
-  .metric-grid { grid-template-columns: 1fr 1fr; }
+  .metric-grid,
+  .metric-grid--weekly { grid-template-columns: 1fr 1fr; }
+
+  .metric-grid--weekly .metric--hours {
+    grid-column: auto;
+    grid-row: auto;
+  }
 }
