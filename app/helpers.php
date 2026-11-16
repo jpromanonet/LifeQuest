@@ -275,6 +275,32 @@ function format_date(?string $date, string $format = 'd M Y'): string
     }
 }
 
+/** Fecha/hora corta para informes: "15/11 a las 18:40". */
+function format_when(mixed $value): string
+{
+    if ($value === null || $value === '') {
+        return '';
+    }
+    try {
+        $raw = (string) $value;
+        $dt = new DateTimeImmutable($raw);
+        if (str_contains($raw, ' ') || str_contains($raw, 'T')) {
+            $tz = now_local()->getTimezone();
+            if (str_ends_with($raw, 'Z') || preg_match('/[+-]\d{2}:?\d{2}$/', $raw)) {
+                $dt = $dt->setTimezone($tz);
+            } else {
+                // completed_at se guarda en UTC sin offset.
+                $dt = new DateTimeImmutable($raw, new DateTimeZone('UTC'));
+                $dt = $dt->setTimezone($tz);
+            }
+        }
+
+        return $dt->format('j/n') . ' a las ' . $dt->format('H:i');
+    } catch (Throwable) {
+        return '';
+    }
+}
+
 /** HH:MM a partir de un TIME de MySQL, o cadena vacía. */
 function format_task_time(mixed $time): string
 {

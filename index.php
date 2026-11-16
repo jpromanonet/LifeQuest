@@ -115,6 +115,9 @@ $router->post('/milestones/{id}/complete', [$milestones, 'complete']);
 $router->post('/milestones/{id}/reopen', [$milestones, 'reopen']);
 $router->post('/milestones/{id}/delete', [$milestones, 'destroy']);
 
+$weeklyReport = new WeeklyReportController();
+$router->get('/informe-semanal', [$weeklyReport, 'index']);
+
 $friends = new FriendsController();
 $router->get('/friends', [$friends, 'index']);
 $router->post('/friends', [$friends, 'store']);

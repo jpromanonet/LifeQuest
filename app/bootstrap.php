@@ -32,6 +32,7 @@ require_once __DIR__ . '/Services/ScheduleService.php';
 require_once __DIR__ . '/Services/SportService.php';
 require_once __DIR__ . '/Services/RuleService.php';
 require_once __DIR__ . '/Services/MilestoneService.php';
+require_once __DIR__ . '/Services/WeeklyReportService.php';
 require_once __DIR__ . '/Services/FriendService.php';
 require_once __DIR__ . '/Services/MetricCatalog.php';
 require_once __DIR__ . '/Services/MetricsService.php';
@@ -49,6 +50,7 @@ foreach ([
     'SportsController',
     'RulesController',
     'MilestonesController',
+    'WeeklyReportController',
     'FriendsController',
     'MetricsController',
     'ReviewsController',

@@ -32,9 +32,9 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=108">
+    <link rel="stylesheet" href="<?= e(url('/assets/css/app.css')) ?>?v=109">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-    <script src="<?= e(url('/assets/js/app.js')) ?>?v=108" defer></script>
+    <script src="<?= e(url('/assets/js/app.js')) ?>?v=109" defer></script>
 </head>
 <body class="app-body" data-app-index="<?= e(base_path() . '/index.php') ?>">
 <div class="app-shell">
@@ -64,26 +64,30 @@ if (isset($flashError) && is_string($flashError) && $flashError !== '') {
         <nav class="sidebar-nav">
             <?php
             $items = [
-                'today' => ['Hoy', '/today', 'home'],
-                'goals' => ['Objetivos', '/goals', 'target'],
-                'weekly' => ['Plan semanal', '/weekly', 'week'],
-                'habits' => ['Hábitos', '/habits', 'check'],
-                'sports' => ['Entrenamiento', '/deportes', 'sport'],
-                'horario' => ['Horario', '/horario', 'schedule'],
-                'milestones' => ['Hitos', '/milestones', 'milestone'],
-                'friends' => ['Amigos/as', '/friends', 'friends'],
-                'horizon' => ['Horizontes', '/horizon', 'horizon'],
-                'rules' => ['Reglas propias', '/rules', 'rules'],
-                'metrics' => ['Métricas', '/metrics', 'chart'],
-                'reviews' => ['Revisiones', '/reviews', 'review'],
-                'archive' => ['Archivo', '/archive', 'archive'],
-                'settings' => ['Configuración', '/settings', 'settings'],
+                'today' => ['Hoy', '/today', 'home', 'nav-block-today'],
+                'goals' => ['Objetivos', '/goals', 'target', 'nav-block-life'],
+                'weekly' => ['Plan semanal', '/weekly', 'week', 'nav-block-life'],
+                'habits' => ['Hábitos', '/habits', 'check', 'nav-block-life'],
+                'sports' => ['Entrenamiento', '/deportes', 'sport', 'nav-block-life'],
+                'horario' => ['Horario', '/horario', 'schedule', 'nav-block-life'],
+                'milestones' => ['Hitos', '/milestones', 'milestone', 'nav-block-life'],
+                'weekly_report' => ['Informe semanal', '/informe-semanal', 'report', 'nav-block-life'],
+                'friends' => ['Amigos/as', '/friends', 'friends', 'nav-block-life'],
+                'horizon' => ['Horizontes', '/horizon', 'horizon', 'nav-block-life'],
+                'rules' => ['Reglas propias', '/rules', 'rules', 'nav-block-insight'],
+                'metrics' => ['Métricas', '/metrics', 'chart', 'nav-block-insight'],
+                'reviews' => ['Revisiones', '/reviews', 'review', 'nav-block-insight'],
+                'archive' => ['Archivo', '/archive', 'archive', 'nav-block-insight'],
+                'settings' => ['Configuración', '/settings', 'settings', 'nav-block-settings'],
             ];
             require dirname(__DIR__) . '/partials/icons.php';
-            foreach ($items as $key => [$label, $path, $icon]):
+            $prevBlock = null;
+            foreach ($items as $key => [$label, $path, $icon, $block]):
                 $active = $nav === $key ? ' is-active' : '';
+                $blockStart = $prevBlock !== $block ? ' is-block-start' : '';
+                $prevBlock = $block;
             ?>
-                <a class="nav-item<?= $active ?>" href="<?= e(url($path)) ?>">
+                <a class="nav-item <?= e($block) ?><?= $blockStart ?><?= $active ?>" href="<?= e(url($path)) ?>">
                     <span class="nav-icon"><?= icon_svg($icon) ?></span>
                     <span><?= e($label) ?></span>
                 </a>

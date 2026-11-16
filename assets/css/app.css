@@ -273,14 +273,59 @@ a:hover { color: var(--color-primary-strong); }
   border-left: 3px solid transparent;
 }
 
+.nav-item.is-block-start {
+  margin-top: 8px;
+}
+
+.nav-item.nav-block-today {
+  background: color-mix(in srgb, var(--color-mint-soft) 88%, transparent);
+  color: color-mix(in srgb, var(--color-mint) 35%, var(--color-text));
+}
+
+.nav-item.nav-block-life {
+  background: color-mix(in srgb, var(--color-yellow-soft) 90%, transparent);
+  color: color-mix(in srgb, var(--color-yellow-ink) 55%, var(--color-text));
+}
+
+.nav-item.nav-block-insight {
+  background: color-mix(in srgb, var(--color-sky-soft) 92%, transparent);
+  color: color-mix(in srgb, var(--color-sky) 40%, var(--color-text));
+}
+
+.nav-item.nav-block-settings {
+  background: color-mix(in srgb, var(--color-surface-hover) 95%, #c9ced8);
+  color: var(--color-text-muted);
+}
+
 .nav-item:hover {
-  background: var(--color-surface-hover);
+  filter: brightness(0.98);
   color: var(--color-text);
 }
 
 .nav-item.is-active {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-strong);
+  border-left-color: currentColor;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
+  font-weight: 750;
+}
+
+.nav-item.nav-block-today.is-active {
+  background: var(--color-mint-soft);
+  color: #1f6b55;
+}
+
+.nav-item.nav-block-life.is-active {
+  background: var(--color-yellow-soft);
+  color: var(--color-yellow-ink);
+}
+
+.nav-item.nav-block-insight.is-active {
+  background: var(--color-sky-soft);
+  color: #1f5f7a;
+}
+
+.nav-item.nav-block-settings.is-active {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
   border-left-color: var(--color-primary);
 }
 
@@ -4525,4 +4570,123 @@ body:has(.horario-board) {
   .sport-discipline { align-items: flex-start; }
   .sport-discipline-action,
   .sport-discipline-slot { width: 100%; justify-content: flex-start; text-align: left; }
+}
+
+.eyebrow {
+  margin: 0 0 0.15rem;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.week-report-actions {
+  flex-wrap: wrap;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 18px;
+}
+
+.metric-grid--weekly .metric:nth-child(1) { border-top-color: #0E6E6A; }
+.metric-grid--weekly .metric:nth-child(2) { border-top-color: #C96A2C; }
+.metric-grid--weekly .metric:nth-child(3) { border-top-color: #D4A017; }
+.metric-grid--weekly .metric:nth-child(4) { border-top-color: #3A6FA8; }
+
+.metric {
+  display: block;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
+  border-radius: 14px;
+}
+
+.metric span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.metric strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.55rem;
+  line-height: 1.1;
+}
+
+.week-report-cut {
+  margin-top: 14px;
+  border-top: 3px solid var(--color-border);
+}
+
+.week-report-cut--task { border-top-color: #0E6E6A; }
+.week-report-cut--sport { border-top-color: #C96A2C; }
+.week-report-cut--habit { border-top-color: #D4A017; }
+.week-report-cut--goal { border-top-color: #7C83E1; }
+.week-report-cut--milestone { border-top-color: #78C6B0; }
+.week-report-cut--horizon { border-top-color: #5C6570; }
+
+.week-report-cut .section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0.6rem;
+}
+
+.week-report-cut h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+
+.week-report-cut .section-head h2 {
+  margin: 0;
+}
+
+.week-report-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.week-report-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.week-report-list li.is-done strong {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.week-report-list .muted {
+  font-size: 0.86rem;
+}
+
+.empty-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 900px) {
+  .metric-grid { grid-template-columns: 1fr 1fr; }
 }
