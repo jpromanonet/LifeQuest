@@ -174,16 +174,15 @@ final class WeeklyReportService
     private function weekHabits(int $userId, string $startDay, string $endDay): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT h.title,
+            'SELECT h.name AS title,
                     COUNT(l.id) AS times,
                     COALESCE(SUM(CASE WHEN l.quantity IS NOT NULL THEN l.quantity ELSE 0 END), 0) AS qty_sum
              FROM habit_logs l
-             INNER JOIN habits h ON h.id = l.habit_id AND h.user_id = l.user_id AND h.deleted_at IS NULL
-             WHERE l.user_id = :uid
-               AND l.log_date BETWEEN :a AND :b
+             INNER JOIN habits h ON h.id = l.habit_id AND h.user_id = :uid AND h.deleted_at IS NULL
+             WHERE l.log_date BETWEEN :a AND :b
                AND l.status IN (\'completed\', \'partial\')
-             GROUP BY h.id, h.title
-             ORDER BY times DESC, h.title ASC'
+             GROUP BY h.id, h.name
+             ORDER BY times DESC, h.name ASC'
         );
         $stmt->execute(['uid' => $userId, 'a' => $startDay, 'b' => $endDay]);
 
